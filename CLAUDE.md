@@ -101,6 +101,19 @@ A full `.vpk` install is needed the first time, and whenever the LiveArea
 assets or `param.sfo` change. Assets under `assets_out/` go to
 `ux0:/data/bikerace/` separately — see option (C) in `deploy.sh`.
 
+### `sce_sys` artwork must be 8-bit palette PNG
+
+An install that reaches 99% and then fails with **`0x8010113D`** means
+`scePromoterUtility` rejected the package's artwork. `icon0.png`, `bg.png` and
+`startup.png` must be **PNG colour type 3** — 8-bit palette, with a `PLTE`
+chunk — at exactly 128×128, 840×500 and 280×158. Truecolour RGB is rejected.
+(This is what "run pngquant on your images" means in the forum threads; it is
+confirmed by VitaShell's own VPK, whose three `sce_sys` PNGs are all type 3.)
+
+`scripts/build.sh` runs `scripts/check_sce_sys.py` before every build so this
+cannot reach the Vita again. Regenerate the artwork with
+`./scripts/make_livearea.sh`, which writes `PNG8:` output and verifies it.
+
 ## Debugging
 
 ### Live log

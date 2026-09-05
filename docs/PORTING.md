@@ -13,7 +13,8 @@ Legend: **done** · **wip** · **todo**
 - [x] Crash dump fetch + symbolication (`scripts/getdump.sh`, `parsedump.sh`)
 - [x] jadx decompile + obfuscation map (`scripts/decompile.sh`, `find.sh`)
 - [x] Asset extraction (`scripts/extract_assets.sh`)
-- [x] LiveArea icon/bg from the original app icon
+- [x] LiveArea icon/bg from the original app icon (8-bit palette PNG —
+      truecolour makes the install fail with `0x8010113D`)
 
 ## Phase 1 — it boots and draws  ⬅ you are here
 

@@ -23,6 +23,10 @@ if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
   docker build -t "$DOCKER_IMAGE" "$REPO_ROOT/docker"
 fi
 
+# A truecolour sce_sys PNG makes the VPK fail to install with 0x8010113D,
+# and the failure only shows up on the Vita -- catch it here instead.
+python3 "$REPO_ROOT/scripts/check_sce_sys.py"
+
 mkdir -p "$BUILD_DIR"
 
 docker run --rm \
