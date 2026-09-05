@@ -46,6 +46,13 @@ void br_render_end(void)
     vglSwapBuffers(GL_FALSE);
 }
 
+void br_ui_begin(void)
+{
+    glLoadIdentity();
+    glScalef(2.0f / (float)SCREEN_W, -2.0f / (float)SCREEN_H, 1.0f);
+    glTranslatef(-(float)SCREEN_W * 0.5f, -(float)SCREEN_H * 0.5f, 0.0f);
+}
+
 void br_push(void)                     { glPushMatrix(); }
 void br_pop(void)                      { glPopMatrix(); }
 void br_identity(void)                 { glLoadIdentity(); }
@@ -93,6 +100,23 @@ void br_draw_sprite(const br_texture *tex, float w, float h, const br_color *col
 {
     float hw = w * 0.5f, hh = h * 0.5f;
     br_draw_rect(-hw, hh, hw, -hh, tex, color);
+}
+
+void br_draw_triangles(const float *xy, const float *uv, int vertex_count,
+                       const br_texture *tex, const br_color *color)
+{
+    if (vertex_count < 3)
+        return;
+
+    if (color)
+        glColor4f(color->r, color->g, color->b, color->a);
+    else
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+    glVertexPointer(2, GL_FLOAT, 0, xy);
+    glTexCoordPointer(2, GL_FLOAT, 0, uv);
+    bind(tex);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 }
 
 void br_draw_mesh(const br_mesh *mesh)

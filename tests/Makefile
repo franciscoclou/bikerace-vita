@@ -20,7 +20,8 @@ CORE := \
   ../src/game/board.c ../src/game/level.c ../src/game/camera.c \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/platform/fs.c \
-  stub/gl_stub.c log_stub.c levels_blob_stub.c
+  ../src/ui/font.c \
+  stub/gl_stub.c log_stub.c blobs_stub.c
 
 SRC   := $(CORE) test_game.c
 SHOTS := $(CORE) screenshot.c

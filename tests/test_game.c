@@ -10,10 +10,11 @@
 #include <string.h>
 
 #include "../src/engine/render.h"
+#include "../src/ui/font.h"
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
 
-void br_test_load_blob(const char *path);
+void br_test_load_blobs(void);
 extern int br_test_log_verbose;
 
 static int  g_failures;
@@ -508,6 +509,49 @@ static void test_lean_direction(br_game *game)
            leaned_forward, leaned_back);
 }
 
+extern const unsigned char *br_font_display_start;
+extern const unsigned char *br_font_display_end;
+extern const unsigned char *br_font_body_start;
+extern const unsigned char *br_font_body_end;
+
+static void test_fonts(void)
+{
+    struct { const char *name; const unsigned char **s, **e; } faces[] = {
+        { "display", &br_font_display_start, &br_font_display_end },
+        { "body",    &br_font_body_start,    &br_font_body_end    },
+    };
+    int i;
+
+    begin("fonts");
+
+    for (i = 0; i < 2; i++) {
+        br_font font;
+        float narrow, wide;
+
+        CHECK(br_font_load(&font, *faces[i].s,
+                           (unsigned)(*faces[i].e - *faces[i].s)) == 0,
+              "%s font failed to load", faces[i].name);
+        if (!font.glyphs)
+            continue;
+
+        CHECK(font.glyph_count == 95, "%s has %d glyphs, want 95",
+              faces[i].name, font.glyph_count);
+        CHECK(font.line_height > 8, "%s line height %d looks wrong",
+              faces[i].name, font.line_height);
+
+        narrow = br_font_width(&font, "1", 32.0f);
+        wide   = br_font_width(&font, "WORLD 12", 32.0f);
+        CHECK(narrow > 0.0f, "%s measured '1' as %.2f", faces[i].name, narrow);
+        CHECK(wide > narrow * 4.0f, "%s measured 'WORLD 12' as %.2f against "
+              "'1' at %.2f", faces[i].name, wide, narrow);
+        /* Twice the pixel size is twice the width. */
+        CHECK(fabsf(br_font_width(&font, "WORLD 12", 64.0f) - wide * 2.0f) < 0.01f,
+              "%s does not scale linearly", faces[i].name);
+
+        br_font_free(&font);
+    }
+}
+
 static void test_bike_sprite_region(void)
 {
     int i;
@@ -532,7 +576,7 @@ int main(int argc, char **argv)
     br_game game;
 
     br_test_log_verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
-    br_test_load_blob("data/levels.bin");
+    br_test_load_blobs();
 
     test_geometry();
     test_spring_rest();
@@ -549,6 +593,7 @@ int main(int argc, char **argv)
     test_camera_transform(&game);
     test_camera_follow(&game);
     test_track_mesh(&game);
+    test_fonts();
     test_bike_sprite_region();
     test_lean_direction(&game);
     test_reverse(&game);

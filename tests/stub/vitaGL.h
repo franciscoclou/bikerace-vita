@@ -33,6 +33,7 @@ typedef float    GLfloat;
 #define GL_VERTEX_ARRAY           0x8074
 #define GL_TEXTURE_COORD_ARRAY    0x8078
 #define GL_TRIANGLE_STRIP         0x0005
+#define GL_TRIANGLES              0x0004
 
 void glViewport(GLint, GLint, GLsizei, GLsizei);
 void glMatrixMode(GLenum);

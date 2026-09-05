@@ -12,7 +12,7 @@
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
 
-void br_test_load_blob(const char *path);
+void br_test_load_blobs(void);
 extern int br_test_log_verbose;
 
 static int write_png(const char *path, const unsigned char *rgba, int w, int h)
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     int i;
 
     br_test_log_verbose = 0;
-    br_test_load_blob("data/levels.bin");
+    br_test_load_blobs();
 
     if (br_game_init(&game) < 0) {
         printf("game init failed\n");

@@ -20,6 +20,8 @@ typedef struct {
 } br_texture;
 
 int  br_image_load(br_image *img, const char *path);
+/* Upload already-decoded, premultiplied RGBA. */
+void br_image_from_rgba(br_image *img, const unsigned char *rgba, int w, int h);
 void br_image_free(br_image *img);
 
 br_texture br_texture_region(const br_image *img, float u0, float v0, float u1, float v1);

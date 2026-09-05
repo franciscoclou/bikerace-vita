@@ -72,17 +72,7 @@ int br_image_load(br_image *img, const char *path)
         }
     }
 
-    glGenTextures(1, &img->id);
-    glBindTexture(GL_TEXTURE_2D, img->id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-    img->width  = (int)w;
-    img->height = (int)h;
+    br_image_from_rgba(img, (const unsigned char *)pixels, (int)w, (int)h);
 
     free((void *)rows);
     free((void *)pixels);
@@ -98,6 +88,20 @@ fail:
     if (png) png_destroy_read_struct(&png, info ? &info : NULL, NULL);
     fclose(fp);
     return -1;
+}
+
+void br_image_from_rgba(br_image *img, const unsigned char *rgba, int w, int h)
+{
+    glGenTextures(1, &img->id);
+    glBindTexture(GL_TEXTURE_2D, img->id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    img->width  = w;
+    img->height = h;
 }
 
 void br_image_free(br_image *img)

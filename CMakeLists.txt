@@ -54,12 +54,12 @@ file(GLOB_RECURSE BR_SOURCES
   ${CMAKE_SOURCE_DIR}/src/*.S
 )
 
-# levels_blob.S pulls in data/levels.bin with .incbin, so the assembler needs
-# the repo root on its include path, and the blob is a build dependency.
-set_source_files_properties(${CMAKE_SOURCE_DIR}/src/game/levels_blob.S
+# blobs.S pulls the data/ files in with .incbin, so the assembler needs the
+# repo root on its include path and the blobs are build dependencies.
+set_source_files_properties(${CMAKE_SOURCE_DIR}/src/game/blobs.S
   PROPERTIES
     COMPILE_OPTIONS "-Wa,-I,${CMAKE_SOURCE_DIR}"
-    OBJECT_DEPENDS  "${CMAKE_SOURCE_DIR}/data/levels.bin")
+    OBJECT_DEPENDS  "${CMAKE_SOURCE_DIR}/data/levels.bin;${CMAKE_SOURCE_DIR}/data/font_display.bin;${CMAKE_SOURCE_DIR}/data/font_body.bin")
 
 add_executable(${PROJECT_NAME} ${BR_SOURCES})
 

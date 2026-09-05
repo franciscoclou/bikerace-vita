@@ -156,14 +156,14 @@ static void raster_tri(const float *p, const float *uv, const tex_store *t)
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     const tex_store *t = &s_tex[s_bound < MAX_TEXTURES ? s_bound : 0];
+    int step = (mode == GL_TRIANGLES) ? 3 : 1;
     int i;
 
-    (void)mode;
     s_draws++;
     if (!s_xy || !s_uv || count < 3)
         return;
 
-    for (i = first; i + 2 < first + count; i++) {
+    for (i = first; i + 2 < first + count; i += step) {
         float p[6], uv[6];
         int k;
         for (k = 0; k < 3; k++) {
