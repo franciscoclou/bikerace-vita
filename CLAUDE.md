@@ -187,6 +187,30 @@ check the port against the original.
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 [docs/PORTING.md](docs/PORTING.md) tracks what is done and what is next.
 
+## Verifying before you build
+
+`make -C tests run` compiles the game's own sources natively with GL and the
+logger stubbed. It runs the real physics over all 152 levels, plays 1-1 to the
+finish line, and checks the camera and broad-phase invariants.
+
+`make -C tests shots` renders real frames to `tests/shots/*.png` through a
+small software rasteriser in the stub, so the scene transforms, atlas regions
+and draw order can be looked at directly.
+
+Run both before building a VPK. They are much faster than a flash-and-look
+cycle and they catch the bugs a UDP log cannot explain.
+
+## Level data
+
+Levels are Java in the original — `LevelFactoryWorld1..19` build each track by
+calling `LevelBoardsBuilder`. Rather than transcribe ~1450 builder calls,
+`tools/leveldump` compiles those decompiled factories against stubs for the few
+Android classes they touch, runs them, and writes the geometry to
+`data/levels.bin` (19 worlds, 152 levels, 30284 segments, ~490 KB).
+
+That file is linked into the executable with `.incbin`, so **a code-only patch
+still only needs `eboot.bin`**. Regenerate it with `./scripts/dumplevels.sh`.
+
 ## Porting conventions
 
 - **Match the original's behaviour, not its style.** The physics is a quirky

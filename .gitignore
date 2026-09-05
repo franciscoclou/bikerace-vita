@@ -30,3 +30,7 @@ compile_commands.json
 *.o
 *.a
 .DS_Store
+
+# --- level dumper build output ---
+tools/leveldump/classes/
+tests/test_game
