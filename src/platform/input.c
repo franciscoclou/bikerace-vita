@@ -45,8 +45,8 @@ void br_input_poll(br_input *in)
         in->touch_y[i] = (float)touch.report[i].y / TOUCH_MAX_Y;
     }
 
-    in->accelerate = (pad.buttons & (SCE_CTRL_RTRIGGER | SCE_CTRL_CROSS)) != 0;
-    in->brake      = (pad.buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_SQUARE)) != 0;
+    in->accelerate = (pad.buttons & SCE_CTRL_CROSS) != 0;
+    in->brake      = (pad.buttons & SCE_CTRL_SQUARE) != 0;
 
     /* Touch halves mirror the Android control scheme. */
     for (i = 0; i < in->touch_count; i++) {
@@ -56,10 +56,12 @@ void br_input_poll(br_input *in)
             in->brake = 1;
     }
 
+    /* The stick is the fine control; the triggers and d-pad are the digital
+     * equivalent, and cancel each other when both are held. */
     in->lean = stick_axis(pad.lx);
     if (in->lean == 0.0f) {
-        if (pad.buttons & SCE_CTRL_LEFT)  in->lean = -1.0f;
-        if (pad.buttons & SCE_CTRL_RIGHT) in->lean =  1.0f;
+        if (pad.buttons & (SCE_CTRL_RTRIGGER | SCE_CTRL_RIGHT)) in->lean += 1.0f;
+        if (pad.buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_LEFT))  in->lean -= 1.0f;
     }
 
     {

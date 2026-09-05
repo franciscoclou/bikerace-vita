@@ -6,10 +6,11 @@
 /* The Android original drove the bike with two on-screen halves (left half =
  * brake, right half = accelerate) plus an accelerometer tilt mode. On the Vita:
  *
- *   accelerate    -> R trigger / Cross / right half of the front touchscreen
+ *   accelerate    -> Cross, or the right half of the front touchscreen
  *   brake, then
- *   reverse       -> L trigger / Square / left half of the front touchscreen
- *   lean          -> left stick X, or the d-pad
+ *   reverse       -> Square, or the left half of the front touchscreen
+ *   lean forward  -> R trigger, left stick right, or d-pad right
+ *   lean back     -> L trigger, left stick left, or d-pad left
  *   reset level   -> Circle
  *   quit          -> Start + Select
  */
