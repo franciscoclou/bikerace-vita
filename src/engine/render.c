@@ -10,6 +10,9 @@
 
 static float s_aspect = (float)SCREEN_W / (float)SCREEN_H;
 
+static br_image   s_white_image;
+static br_texture s_white;
+
 void br_render_init(void)
 {
     glViewport(0, 0, SCREEN_W, SCREEN_H);
@@ -26,6 +29,12 @@ void br_render_init(void)
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    {
+        static const unsigned char pixel[4] = { 255, 255, 255, 255 };
+        br_image_from_rgba(&s_white_image, pixel, 1, 1);
+        s_white = br_texture_region(&s_white_image, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
 
     LOGI("render: %dx%d, aspect %.4f, premultiplied-alpha blending",
          SCREEN_W, SCREEN_H, s_aspect);
@@ -96,10 +105,17 @@ void br_draw_rect(float left, float top, float right, float bottom,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
+const br_texture *br_white_texture(void) { return &s_white; }
+
 void br_draw_sprite(const br_texture *tex, float w, float h, const br_color *color)
 {
     float hw = w * 0.5f, hh = h * 0.5f;
     br_draw_rect(-hw, hh, hw, -hh, tex, color);
+}
+
+void br_fill_rect(float x, float y, float w, float h, const br_color *color)
+{
+    br_draw_rect(x, y, x + w, y + h, &s_white, color);
 }
 
 void br_draw_triangles(const float *xy, const float *uv, int vertex_count,

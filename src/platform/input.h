@@ -25,6 +25,10 @@ typedef struct {
     int   back_pressed;
     int   confirm_pressed;
 
+    /* Held menu direction from the d-pad or the left stick, -1/0/+1.
+     * Auto-repeat is the menu's business, since it needs the frame time. */
+    int   nav_x, nav_y;
+
     int   touch_count;
     float touch_x[2];   /* 0..1 across the screen */
     float touch_y[2];

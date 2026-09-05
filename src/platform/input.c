@@ -64,6 +64,22 @@ void br_input_poll(br_input *in)
         if (pad.buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_LEFT))  in->lean -= 1.0f;
     }
 
+    in->nav_x = in->nav_y = 0;
+    if (pad.buttons & SCE_CTRL_RIGHT) in->nav_x =  1;
+    if (pad.buttons & SCE_CTRL_LEFT)  in->nav_x = -1;
+    if (pad.buttons & SCE_CTRL_DOWN)  in->nav_y =  1;
+    if (pad.buttons & SCE_CTRL_UP)    in->nav_y = -1;
+    if (in->nav_x == 0) {
+        float ax = stick_axis(pad.lx);
+        if (ax >  0.5f) in->nav_x =  1;
+        if (ax < -0.5f) in->nav_x = -1;
+    }
+    if (in->nav_y == 0) {
+        float ay = stick_axis(pad.ly);
+        if (ay >  0.5f) in->nav_y =  1;
+        if (ay < -0.5f) in->nav_y = -1;
+    }
+
     {
         uint32_t pressed = in->buttons & ~in->buttons_prev;
         in->pause_pressed   = (pressed & SCE_CTRL_START)  != 0;

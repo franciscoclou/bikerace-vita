@@ -10,7 +10,9 @@
 #include <string.h>
 
 #include "../src/engine/render.h"
+#include "../src/game/save.h"
 #include "../src/ui/font.h"
+#include "../src/ui/menu.h"
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
 
@@ -571,12 +573,140 @@ static void test_bike_sprite_region(void)
     }
 }
 
+static void test_save(br_game *game)
+{
+    br_save save;
+
+    begin("save round-trips");
+
+    CHECK(br_save_init(&save, game->pack.world_count,
+                       game->pack.worlds[0].level_count) == 0, "init failed");
+    CHECK(br_save_total_stars(&save) == 0, "a fresh save already has stars");
+
+    br_save_record(&save, 0, 0, 2, 12.5f);
+    br_save_record(&save, 3, 4, 3, 20.0f);
+    br_save_remember_place(&save, 3, 4);
+    CHECK(br_save_total_stars(&save) == 5, "recorded 5 stars, read back %d",
+          br_save_total_stars(&save));
+    CHECK(br_save_world_stars(&save, 0) == 2, "world 1 has %d stars, want 2",
+          br_save_world_stars(&save, 0));
+
+    /* Only the better result sticks. */
+    br_save_record(&save, 0, 0, 1, 30.0f);
+    CHECK(br_save_level(&save, 0, 0)->stars == 2, "a worse star count overwrote");
+    CHECK(br_save_level(&save, 0, 0)->best_time == 12.5f, "a slower time overwrote");
+    br_save_record(&save, 0, 0, 3, 9.0f);
+    CHECK(br_save_level(&save, 0, 0)->stars == 3, "a better star count was dropped");
+    CHECK(br_save_level(&save, 0, 0)->best_time == 9.0f, "a faster time was dropped");
+
+    CHECK(save.dirty, "changes did not mark the save dirty");
+    CHECK(br_save_flush(&save) == 0, "flush failed");
+    CHECK(!save.dirty, "still dirty after a flush");
+
+    {
+        br_save reloaded;
+        br_save_init(&reloaded, game->pack.world_count,
+                     game->pack.worlds[0].level_count);
+        br_save_load(&reloaded);
+        CHECK(br_save_total_stars(&reloaded) == 6, "reloaded %d stars, want 6",
+              br_save_total_stars(&reloaded));
+        CHECK(reloaded.last_world == 3 && reloaded.last_level == 4,
+              "reloaded place %d-%d, want 4-5",
+              reloaded.last_world + 1, reloaded.last_level + 1);
+        CHECK(br_save_level(&reloaded, 0, 0)->best_time == 9.0f,
+              "reloaded best time %.2f, want 9.00",
+              br_save_level(&reloaded, 0, 0)->best_time);
+        br_save_free(&reloaded);
+    }
+
+    br_save_free(&save);
+    remove("assets_out/save.bin");
+}
+
+static void test_menu_navigation(br_game *game)
+{
+    br_menu menu;
+    br_input in;
+    int i;
+
+    begin("menu navigation");
+
+    memset(&menu, 0, sizeof(menu));
+    memset(&in, 0, sizeof(in));
+    br_menu_open_worlds(&menu);
+
+    /* Right from the last world wraps to the first. */
+    menu.world = game->pack.world_count - 1;
+    in.nav_x = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.world == 0, "right from the last world went to %d, want 0", menu.world);
+
+    /* Held direction must repeat rather than run away. */
+    menu.world = 0;
+    for (i = 0; i < 10; i++)
+        br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.world >= 0 && menu.world < game->pack.world_count,
+          "holding right left the selection at %d", menu.world);
+    CHECK(menu.world <= 2, "holding right for 1/6 s moved %d places, too fast",
+          menu.world);
+
+    /* Down and up must stay inside the grid on every world. */
+    in.nav_x = 0;
+    for (i = 0; i < game->pack.world_count; i++) {
+        int dir;
+        for (dir = -1; dir <= 1; dir += 2) {
+            menu.world = i;
+            menu.held_x = menu.held_y = 99;      /* force a fresh press */
+            in.nav_y = dir;
+            br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+            CHECK(menu.world >= 0 && menu.world < game->pack.world_count,
+                  "moving %s from world %d left the grid at %d",
+                  dir < 0 ? "up" : "down", i + 1, menu.world);
+        }
+    }
+
+    /* Cross on a world opens its levels; Circle backs out again. */
+    in.nav_y = 0;
+    menu.held_x = menu.held_y = 0;
+    br_menu_open_worlds(&menu);
+    menu.world = 5;
+    in.confirm_pressed = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_LEVELS, "Cross did not open the level list");
+    CHECK(menu.world == 5, "opening levels changed the world to %d", menu.world);
+
+    in.confirm_pressed = 0;
+    in.back_pressed = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_WORLDS, "Circle did not return to the world list");
+}
+
+static void test_world_names(br_game *game)
+{
+    int i;
+
+    begin("world names");
+
+    for (i = 0; i < game->pack.world_count; i++) {
+        const char *name = br_world_name(i);
+        CHECK(name && name[0] && strcmp(name, "World") != 0,
+              "world %d has no name", i + 1);
+    }
+    CHECK(strcmp(br_world_name(0), "Desert") == 0, "world 1 is '%s', want Desert",
+          br_world_name(0));
+    CHECK(strcmp(br_world_name(15), "Halloween") == 0,
+          "world 16 is '%s', want Halloween", br_world_name(15));
+    CHECK(strcmp(br_world_name(-1), "World") == 0, "out of range name not handled");
+    CHECK(strcmp(br_world_name(999), "World") == 0, "out of range name not handled");
+}
+
 int main(int argc, char **argv)
 {
     br_game game;
 
     br_test_log_verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
     br_test_load_blobs();
+    br_render_init();
 
     test_geometry();
     test_spring_rest();
@@ -594,6 +724,9 @@ int main(int argc, char **argv)
     test_camera_follow(&game);
     test_track_mesh(&game);
     test_fonts();
+    test_save(&game);
+    test_menu_navigation(&game);
+    test_world_names(&game);
     test_bike_sprite_region();
     test_lean_direction(&game);
     test_reverse(&game);

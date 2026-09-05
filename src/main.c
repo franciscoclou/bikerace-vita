@@ -7,34 +7,16 @@
 
 #include <vitaGL.h>
 
+#include "app.h"
 #include "engine/render.h"
-#include "game/game.h"
 #include "platform/fs.h"
 #include "platform/input.h"
 #include "platform/log.h"
 
 #define GL_POOL_SIZE (16 * 1024 * 1024)
-#define START_WORLD  0
-#define START_LEVEL  0
 
-static br_game  g_game;
+static br_app   g_app;
 static br_input g_input;
-
-static void log_frame(const br_game *game, unsigned frame, float dt)
-{
-    const br_bike *bike = &game->bike;
-    static const char *states[] = { "waiting", "running", "finished", "dead" };
-
-    LOGI("f=%u dt=%.4f %s t=%.2f | head(%.2f,%.2f) v(%.2f,%.2f) ang=%.1f "
-         "| ground r=%d f=%d | cam(%.2f,%.2f) s=%.2f | in a=%d b=%d lean=%.2f",
-         frame, dt, states[game->state], game->elapsed,
-         bike->head.pos.x, bike->head.pos.y,
-         bike->chassis.com_vel.x, bike->chassis.com_vel.y,
-         br_bike_angle_deg(bike),
-         game->rear_grounded, game->front_grounded,
-         game->camera.pos.x, game->camera.pos.y, game->camera.scale,
-         g_input.accelerate, g_input.brake, g_input.lean);
-}
 
 int main(void)
 {
@@ -53,13 +35,8 @@ int main(void)
     br_render_init();
     br_input_init();
 
-    if (br_game_init(&g_game) < 0) {
-        LOGE("fatal: game init failed");
-        goto done;
-    }
-    if (br_game_load(&g_game, START_WORLD, START_LEVEL) < 0) {
-        LOGE("fatal: could not load the first level -- are the textures on the "
-             "Vita under %s/textures ?", br_asset_root());
+    if (br_app_init(&g_app) < 0) {
+        LOGE("fatal: startup failed -- are the assets under %s ?", br_asset_root());
         goto done;
     }
 
@@ -78,16 +55,16 @@ int main(void)
             break;
         }
 
-        br_game_update(&g_game, &g_input, dt);
-        br_game_draw(&g_game, (unsigned)(now_us / 1000));
+        br_app_update(&g_app, &g_input, dt);
+        if (br_app_should_quit(&g_app))
+            break;
 
-        if ((frame % 60) == 0)
-            log_frame(&g_game, frame, dt);
+        br_app_draw(&g_app, (unsigned)(now_us / 1000));
         frame++;
     }
 
     LOGI("shutting down after %u frames", frame);
-    br_game_free(&g_game);
+    br_app_free(&g_app);
 
 done:
     br_log_shutdown();

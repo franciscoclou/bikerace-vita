@@ -295,8 +295,3 @@ void br_game_update(br_game *game, const br_input *in, float dt)
 
     update_camera(game, dt);
 }
-
-void br_game_draw(br_game *game, unsigned time_ms)
-{
-    br_scene_draw(&game->scene, game->level, &game->camera, &game->bike, time_ms);
-}

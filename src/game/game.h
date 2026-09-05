@@ -50,6 +50,5 @@ void br_game_restart(br_game *game);
 int  br_game_next_level(br_game *game);
 
 void br_game_update(br_game *game, const br_input *in, float dt);
-void br_game_draw(br_game *game, unsigned time_ms);
 
 #endif /* BR_GAME_H */

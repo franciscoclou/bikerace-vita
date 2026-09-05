@@ -1,5 +1,5 @@
-/* Renders frames on the host and writes them as PNGs, so the scene transforms,
- * atlas regions and draw order can be checked without a Vita.
+/* Renders frames on the host and writes them as PNGs, so layout, transforms
+ * and draw order can be checked without a Vita.
  *
  *   make -C tests shots
  */
@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../src/game/game.h"
+#include "../src/app.h"
+#include "../src/engine/render.h"
 #include "stub/vitaGL.h"
 
 void br_test_load_blobs(void);
@@ -37,69 +38,89 @@ static int write_png(const char *path, const unsigned char *rgba, int w, int h)
     return 0;
 }
 
-static void shoot(br_game *game, const char *path, unsigned time_ms)
+static void shoot(br_app *app, const char *dir, const char *name, unsigned time_ms)
 {
     const unsigned char *fb;
+    char path[256];
     int w, h;
 
-    br_game_draw(game, time_ms);
+    br_app_draw(app, time_ms);
     fb = br_test_fb(&w, &h);
+    snprintf(path, sizeof(path), "%s/%s.png", dir, name);
     if (write_png(path, fb, w, h) == 0)
         printf("  wrote %s\n", path);
     else
         printf("  FAILED to write %s\n", path);
 }
 
-/* Advance the simulation with a rider that keeps the bike level. */
-static void run_for(br_game *game, float seconds)
+/* Advance the race with a rider that keeps the bike level. */
+static void race_for(br_app *app, float seconds)
 {
     br_input in;
     int i;
 
     memset(&in, 0, sizeof(in));
     in.accelerate = 1;
-    game->state = BR_STATE_RUNNING;
+    app->game.state = BR_STATE_RUNNING;
 
     for (i = 0; i < (int)(seconds * 60.0f); i++) {
-        float want = br_bike_angle_deg(&game->bike) / 45.0f;
+        float want = br_bike_angle_deg(&app->game.bike) / 45.0f;
         in.lean = want > 1.0f ? 1.0f : (want < -1.0f ? -1.0f : want);
-        br_game_update(game, &in, 1.0f / 60.0f);
+        br_app_update(app, &in, 1.0f / 60.0f);
     }
+}
+
+static void race(br_app *app, const char *dir, const char *name,
+                 int world, int level, float seconds)
+{
+    app->menu.world = world;
+    app->menu.level = level;
+    app->screen = BR_APP_MENU;
+    app->menu.screen = BR_MENU_LEVELS;
+    {
+        br_input in;
+        memset(&in, 0, sizeof(in));
+        in.confirm_pressed = 1;
+        br_app_update(app, &in, 1.0f / 60.0f);   /* picks the level, starts it */
+    }
+    if (seconds > 0.0f)
+        race_for(app, seconds);
+    shoot(app, dir, name, (unsigned)(seconds * 1000.0f));
 }
 
 int main(int argc, char **argv)
 {
-    br_game game;
-    char path[256];
     const char *dir = argc > 1 ? argv[1] : "shots";
-    struct { int world, level; float at; } shots[] = {
-        { 0,  0, 0.0f }, { 0,  0, 1.0f }, { 0,  0, 2.0f }, { 0,  0, 5.0f },
-        { 0,  5, 3.0f },                       /* 1-6, the spiral */
-        { 1,  0, 2.5f },                       /* arctic  */
-        { 15, 0, 3.0f },                       /* halloween */
-    };
-    int i;
+    br_app app;
 
     br_test_log_verbose = 0;
     br_test_load_blobs();
+    br_render_init();
 
-    if (br_game_init(&game) < 0) {
-        printf("game init failed\n");
+    if (br_app_init(&app) < 0) {
+        printf("app init failed\n");
         return 1;
     }
 
-    for (i = 0; i < (int)(sizeof(shots) / sizeof(shots[0])); i++) {
-        if (br_game_load(&game, shots[i].world, shots[i].level) < 0) {
-            printf("  could not load %d-%d\n", shots[i].world + 1, shots[i].level + 1);
-            return 1;
-        }
-        if (shots[i].at > 0.0f)
-            run_for(&game, shots[i].at);
-        snprintf(path, sizeof(path), "%s/w%02d_l%d_t%.0f.png",
-                 dir, shots[i].world + 1, shots[i].level + 1, shots[i].at);
-        shoot(&game, path, (unsigned)(shots[i].at * 1000.0f));
-    }
+    br_menu_open_worlds(&app.menu);
+    app.menu.world = 0;
+    shoot(&app, dir, "menu_worlds", 0);
 
-    br_game_free(&game);
+    app.menu.world = 15;                    /* Halloween, to show the grid wrap */
+    shoot(&app, dir, "menu_worlds_late", 0);
+
+    br_menu_open_levels(&app.menu, 0);
+    app.menu.level = 0;
+    shoot(&app, dir, "menu_levels_w01", 0);
+
+    br_menu_open_levels(&app.menu, 14);     /* Special: the biggest tracks */
+    app.menu.level = 2;
+    shoot(&app, dir, "menu_levels_w15", 0);
+
+    race(&app, dir, "race_w01_l1_start", 0, 0, 0.0f);
+    race(&app, dir, "race_w01_l1", 0, 0, 2.0f);
+    race(&app, dir, "race_w16_l1", 15, 0, 3.0f);
+
+    br_app_free(&app);
     return 0;
 }

@@ -258,9 +258,7 @@ static void draw_bike(const br_scene *scene, const br_bike *bike)
 void br_scene_draw(br_scene *scene, const br_level *level,
                    const br_camera *cam, const br_bike *bike, unsigned time_ms)
 {
-    static const br_color black = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-    br_render_begin(&black);
+    br_identity();
 
     /* Squeeze x by the aspect ratio so one world unit is square on screen;
      * everything below is drawn inside this frame. */
@@ -274,6 +272,4 @@ void br_scene_draw(br_scene *scene, const br_level *level,
         br_draw_mesh(&scene->track_mesh);
     draw_finish(scene, level, time_ms);
     draw_bike(scene, bike);
-
-    br_render_end();
 }

@@ -197,7 +197,9 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 | Lean back (wheelie) | L trigger, left stick left, or d-pad left |
 | Reset the level | Circle |
 | Next level, after finishing | Cross |
-| Quit | Start + Select |
+| Back to the level list | Start |
+| Menus: move / choose / back | d-pad or stick, Cross, Circle |
+| Quit | Start + Select, or Circle on the world list |
 
 Holding brake for a quarter second once the bike has stopped engages reverse,
 and it stays engaged until the button is released. The original had no reverse
@@ -220,6 +222,17 @@ and draw order can be looked at directly.
 
 Run both before building a VPK. They are much faster than a flash-and-look
 cycle and they catch the bugs a UDP log cannot explain.
+
+## Fonts and save data
+
+Text is drawn from the two faces the APK ships, baked into glyph atlases by
+`./scripts/makefonts.sh` and linked into the executable next to the level data.
+Keeping them in the binary means text works before anything has been copied to
+`ux0:data`, which is what makes an on-screen error message possible at all.
+
+Progress lives in `ux0:data/bikerace/save.bin` — stars and best time per level,
+plus where to reopen the menu. A missing or unrecognised file is not an error;
+it just looks like a first run.
 
 ## Level data
 

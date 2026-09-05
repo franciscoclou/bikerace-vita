@@ -50,7 +50,19 @@ for f in apk/res/raw/*.mp3; do
 done
 echo "   $(ls "$OUT"/music | wc -l) tracks"
 
+# --- menu art ---------------------------------------------------------------
+# Only the pieces src/ui/menu.c draws, so the transfer stays small.
+echo ">> menu art"
+mkdir -p "$OUT/ui"
+for f in fundo.png logo.png button_background_default.png \
+         button_level_default.png button_level_pressed.png \
+         star_fill_small.png star_empty_dark.png; do
+  cp "apk/res/drawable-xhdpi/$f" "$OUT/ui/$f"
+done
+echo "   $(ls "$OUT"/ui | wc -l) files"
+
 # --- fonts ------------------------------------------------------------------
+# Kept only as the source scripts/makefonts.sh bakes from.
 echo ">> fonts"
 cp apk/assets/fonts/*.ttf "$OUT/fonts/" 2>/dev/null || true
 echo "   $(ls "$OUT"/fonts | wc -l) fonts"

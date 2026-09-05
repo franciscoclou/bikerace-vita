@@ -38,6 +38,8 @@ typedef struct {
 } br_mesh;
 
 void  br_render_init(void);
+/* A 1x1 opaque white texture, for panels, rules and untextured shapes. */
+const br_texture *br_white_texture(void);
 void  br_render_begin(const br_color *clear);
 void  br_render_end(void);
 float br_render_aspect(void);
@@ -58,6 +60,8 @@ void  br_draw_rect(float left, float top, float right, float bottom,
                    const br_texture *tex, const br_color *color);
 /* Centred quad of the given size -- what SpriteSceneNode.render did. */
 void  br_draw_sprite(const br_texture *tex, float w, float h, const br_color *color);
+/* Solid rectangle in the current transform, given as position and size. */
+void  br_fill_rect(float x, float y, float w, float h, const br_color *color);
 void  br_draw_mesh(const br_mesh *mesh);
 /* Loose triangles, for batching many quads into one call. */
 void  br_draw_triangles(const float *xy, const float *uv, int vertex_count,

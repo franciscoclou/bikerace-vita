@@ -45,14 +45,47 @@ Legend: **done** · **wip** · **todo**
 - [ ] Bike sprite offsets are in place for six bikes; the rest of the shop
       bikes need their rows from `GameSceneDirector`'s tables
 
-## Phase 4 — the game around the game
+## Phase 4 — the game around the game  ⬅ you are here
 
-- [ ] `GameAudio` (`bikerace.v`) — sceAudio, effects + engine-note mixing
-- [ ] Save data in `ux0:data/bikerace/` (replaces `SharedPreferences`)
-- [ ] World / level selection UI
-- [ ] `GameUI` HUD (`bikerace.af`)
+- [x] Save data in `ux0:data/bikerace/save.bin` (replaces `SharedPreferences`)
+- [x] World and level selection, with track previews drawn from the real
+      geometry — something the Android version had nothing to draw from
+- [x] Text, from the two faces the APK ships, baked by `scripts/makefonts.sh`
+- [x] A race overlay: clock, level name, star targets, finish and crash states
+- [ ] `GameAudio` (`bikerace.v`) — engine-note crossfade, crash, win, ambience
 - [ ] Bike selection — all bikes unlocked, no shop, no currency
-- [ ] Remaining 18 worlds
+- [ ] A pause screen, rather than Start dropping straight back to the menu
+
+Nothing is gated: every world and level can be picked from the start, and
+stars are recorded and shown rather than spent.
+
+### Notes for the audio work
+
+The mapping is already read out of `GameAudio`, so it does not need
+rediscovering. Engine notes are five looping samples crossfaded by a small
+state machine (stopped → slow → accelerating → fast, and hi→medium on the way
+back down), switching when the current sample is 95% through:
+
+| Sound | File |
+|---|---|
+| engine low / medium / medium-hi / hi / hi-medium | `rot_baixa`, `rot_media`, `rot_media_alta`, `rot_alta`, `rot_alta_media` |
+| explosion, fall impact, win | `explosion`, `queda`, `win` |
+| Halloween ambience | `sino_1`, `corvo_1`, `grito_homem_1`, `evil_laugh_bruxa_3` |
+| menu music | `musica_menu` |
+
+Fall impact only fires when the contact force is at least 300 and the bike was
+airborne, rate-limited to one per sample length.
+
+## What the menus are, and are not
+
+`GameUI` in the original is a message bridge to Android Activities, and the
+menus are XML layouts, so there was nothing to translate — only the artwork
+carried over. The screens here are new: a world grid and a level grid, drawn
+with the game's own buttons, stars, background and logo, navigated with the
+d-pad or stick.
+
+World names come from the APK's own string table, cross-checked against the
+achievement identifiers.
 
 ## Not being ported
 

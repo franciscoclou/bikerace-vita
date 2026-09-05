@@ -36,6 +36,7 @@ void br_scene_free(br_scene *scene);
 int  br_scene_use(br_scene *scene, int atlas_index, br_bike_type bike);
 int  br_scene_set_level(br_scene *scene, const br_level *level);
 
+/* Draws the world into the frame the caller has already opened. */
 void br_scene_draw(br_scene *scene, const br_level *level,
                    const br_camera *cam, const br_bike *bike, unsigned time_ms);
 
