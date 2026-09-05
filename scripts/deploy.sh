@@ -27,7 +27,18 @@ cat <<TXT
     Then on the Vita open VitaShell, browse to ux0:/data/,
     press X on $VPK_NAME and confirm the install.
 
- C) Assets only (after ./scripts/extract_assets.sh):
+ C) Assets -- needed once, and again whenever
+    ./scripts/extract_assets.sh changes what it produces.
+
+    Just what the game loads today (the ten 1024 world atlases and the
+    regular bike, ~1.8 MB):
+
+    for f in \$(cd assets_out/textures && ls bikerace_textura*b.png m00.png); do
+      curl --ftp-create-dirs -T "assets_out/textures/\$f" \\
+           "$FTP_URL/ux0:/data/bikerace/textures/\$f"
+    done
+
+    Everything, including the UI art the menus will need (~14 MB):
 
     find assets_out -type f -printf '%P\n' | while read -r f; do
       curl --ftp-create-dirs -T "assets_out/\$f" \\
