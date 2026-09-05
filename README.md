@@ -21,7 +21,7 @@ never transfers anything itself.
 
 ## Controls
 
-Accelerate with **L** or **Cross**, brake with **R** or **Square** (keep it held
+Accelerate with **R** or **Cross**, brake with **L** or **Square** (keep it held
 once stopped to reverse), lean with the **left stick** or **d-pad**, reset with
 **Circle**, quit with **Start + Select**.
 

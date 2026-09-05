@@ -191,8 +191,8 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 
 | | |
 |---|---|
-| Accelerate | L trigger, Cross, or the right half of the touchscreen |
-| Brake / reverse | R trigger, Square, or the left half of the touchscreen |
+| Accelerate | R trigger, Cross, or the right half of the touchscreen |
+| Brake / reverse | L trigger, Square, or the left half of the touchscreen |
 | Lean forward (nose down) | left stick right, or d-pad right |
 | Lean back (wheelie) | left stick left, or d-pad left |
 | Reset the level | Circle |
