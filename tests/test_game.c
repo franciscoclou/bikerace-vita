@@ -13,7 +13,11 @@
 #include "../src/game/audio.h"
 #include "../src/game/save.h"
 #include "../src/ui/font.h"
+#include "../src/app.h"
 #include "../src/ui/menu.h"
+#include "../src/ui/result.h"
+#include "../src/ui/settings.h"
+#include "../src/ui/start.h"
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
 
@@ -321,8 +325,12 @@ static run_result play(br_game *game, int world, int level, int stabilise, float
     br_game_load(game, world, level);
     start_x = game->bike.head.pos.x;
 
-    in.accelerate = 1;
     game->state = BR_STATE_RUNNING;
+
+    /* One frame with the throttle shut clears the lock a fresh run starts
+     * with, the same way letting go of Cross does on the Vita. */
+    br_game_update(game, &in, 1.0f / 60.0f);
+    in.accelerate = 1;
 
     for (frame = 0; frame < (int)(limit * 60.0f); frame++) {
         float speed;
@@ -444,7 +452,8 @@ static void test_reverse(br_game *game)
     memset(&in, 0, sizeof(in));
     game->state = BR_STATE_RUNNING;
 
-    /* Get moving. */
+    /* Get moving, letting go for a frame first so the throttle unlatches. */
+    br_game_update(game, &in, 1.0f / 60.0f);
     in.accelerate = 1;
     for (i = 0; i < 90; i++)
         br_game_update(game, &in, 1.0f / 60.0f);
@@ -499,6 +508,7 @@ static void test_lean_direction(br_game *game)
         game->state = BR_STATE_RUNNING;
 
         in.lean = i == 0 ? 1.0f : -1.0f;   /* stick right, then stick left */
+        br_game_update(game, &in, 1.0f / 60.0f);
         for (f = 0; f < 20; f++)
             br_game_update(game, &in, 1.0f / 60.0f);
         *out = br_bike_angle_deg(&game->bike);
@@ -636,33 +646,34 @@ static void test_menu_navigation(br_game *game)
     memset(&in, 0, sizeof(in));
     br_menu_open_worlds(&menu);
 
-    /* Right from the last world wraps to the first. */
-    menu.world = game->pack.world_count - 1;
+    /* The grid runs one cell past the last world: that cell is the bike.
+     * Right from it wraps back to the first world. */
+    menu.world = game->pack.world_count;
     in.nav_x = 1;
     br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
-    CHECK(menu.world == 0, "right from the last world went to %d, want 0", menu.world);
+    CHECK(menu.world == 0, "right from the bike cell went to %d, want 0", menu.world);
 
     /* Held direction must repeat rather than run away. */
     menu.world = 0;
     for (i = 0; i < 10; i++)
         br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
-    CHECK(menu.world >= 0 && menu.world < game->pack.world_count,
+    CHECK(menu.world >= 0 && menu.world <= game->pack.world_count,
           "holding right left the selection at %d", menu.world);
     CHECK(menu.world <= 2, "holding right for 1/6 s moved %d places, too fast",
           menu.world);
 
     /* Down and up must stay inside the grid on every world. */
     in.nav_x = 0;
-    for (i = 0; i < game->pack.world_count; i++) {
+    for (i = 0; i <= game->pack.world_count; i++) {
         int dir;
         for (dir = -1; dir <= 1; dir += 2) {
             menu.world = i;
             menu.held_x = menu.held_y = 99;      /* force a fresh press */
             in.nav_y = dir;
             br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
-            CHECK(menu.world >= 0 && menu.world < game->pack.world_count,
-                  "moving %s from world %d left the grid at %d",
-                  dir < 0 ? "up" : "down", i + 1, menu.world);
+            CHECK(menu.world >= 0 && menu.world <= game->pack.world_count,
+                  "moving %s from cell %d left the grid at %d",
+                  dir < 0 ? "up" : "down", i, menu.world);
         }
     }
 
@@ -899,6 +910,186 @@ static void test_impact_sound(void)
     br_game_audio_free(&audio);
 }
 
+int br_test_audio_initialised(void);
+
+static void test_throttle_lock(br_game *game)
+{
+    br_input in;
+    int i;
+
+    begin("a held throttle does not start the next run");
+
+    memset(&in, 0, sizeof(in));
+    br_game_load(game, 0, 0);
+    game->state = BR_STATE_RUNNING;
+
+    /* Cross held from the moment the level loads must do nothing: it is the
+     * press that dismissed the menu, not a request to move. */
+    in.accelerate = 1;
+    for (i = 0; i < 60; i++)
+        br_game_update(game, &in, 1.0f / 60.0f);
+    CHECK(game->bike.head.pos.x < 0.05f,
+          "a held Cross drove the bike to x=%.3f", game->bike.head.pos.x);
+
+    /* Letting go and pressing again does move it. */
+    in.accelerate = 0;
+    br_game_update(game, &in, 1.0f / 60.0f);
+    in.accelerate = 1;
+    for (i = 0; i < 60; i++)
+        br_game_update(game, &in, 1.0f / 60.0f);
+    CHECK(game->bike.head.pos.x > 0.5f,
+          "a fresh press only reached x=%.3f", game->bike.head.pos.x);
+
+    /* And a restart re-arms the lock. */
+    br_game_restart(game);
+    game->state = BR_STATE_RUNNING;
+    for (i = 0; i < 60; i++)
+        br_game_update(game, &in, 1.0f / 60.0f);
+    CHECK(game->bike.head.pos.x < 0.05f,
+          "the throttle stayed open across a restart: x=%.3f",
+          game->bike.head.pos.x);
+}
+
+static void test_bike_cell(br_game *game)
+{
+    br_menu menu;
+    br_ui_art art;
+    br_input in;
+
+    begin("the world grid's bike cell");
+
+    memset(&art, 0, sizeof(art));
+    br_menu_init(&menu, &art);
+    memset(&in, 0, sizeof(in));
+    br_menu_open_worlds(&menu);
+
+    /* The cell past the last world opens the bike list rather than a world. */
+    menu.world = game->pack.world_count;
+    in.confirm_pressed = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_BIKES, "the bike cell did not open the bike list");
+    CHECK(menu.world < game->pack.world_count,
+          "leaving the bike cell left world at %d, past the last world",
+          menu.world);
+
+    /* And it has a rectangle, so touch can reach it. */
+    br_menu_open_worlds(&menu);
+    {
+        float x, y, w, h;
+        CHECK(br_menu_tile_rect(&menu, &game->pack, game->pack.world_count,
+                                &x, &y, &w, &h),
+              "the bike cell has no rectangle to tap");
+    }
+
+    br_menu_free(&menu);
+}
+
+static void test_settings_toggles(void)
+{
+    br_settings settings;
+    br_ui_art art;
+    br_input in;
+    int sound = 1, music = 1, changed = 0;
+
+    begin("settings toggles");
+
+    memset(&art, 0, sizeof(art));
+    br_settings_init(&settings, &art);
+    br_settings_open(&settings, &sound, &music, &changed);
+    memset(&in, 0, sizeof(in));
+
+    in.confirm_pressed = 1;                 /* row 0 is Sound */
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(sound == 0, "choosing Sound did not turn it off");
+    CHECK(changed, "the change was not flagged for saving");
+
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(sound == 1, "choosing Sound again did not turn it back on");
+
+    /* Circle closes. */
+    in.confirm_pressed = 0;
+    in.back_pressed = 1;
+    CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) == BR_SETTINGS_CLOSE,
+          "Circle did not close the settings");
+}
+
+static void test_result_actions(void)
+{
+    br_result result;
+    br_ui_art art;
+    br_input in;
+
+    begin("end of run options");
+
+    memset(&art, 0, sizeof(art));
+    br_result_init(&result, &art);
+
+    /* Circle repeats, Start steps out to the levels. */
+    br_result_open(&result, 1, 3, 9.5f, 12.0f, 1);
+    memset(&in, 0, sizeof(in));
+    in.back_pressed = 1;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
+          "Circle did not repeat the level");
+
+    memset(&in, 0, sizeof(in));
+    in.pause_pressed = 1;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_MENU,
+          "Start did not go back to the levels");
+
+    /* Cross takes the first row: next level after a finish... */
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    result.list.selected = 0;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_NEXT,
+          "Cross did not move to the next level");
+
+    /* ...and another go after a crash, since there is no next. */
+    br_result_open(&result, 0, 0, 4.0f, 0.0f, 0);
+    result.list.selected = 0;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
+          "Cross after a crash did not retry");
+}
+
+static void test_start_screen(void)
+{
+    br_start start;
+    br_ui_art art;
+    br_input in;
+
+    begin("start screen");
+
+    memset(&art, 0, sizeof(art));
+    br_start_init(&start, &art);
+    br_start_open(&start);
+    memset(&in, 0, sizeof(in));
+
+    in.confirm_pressed = 1;
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_SINGLE_PLAYER,
+          "the first row is not Single Player");
+
+    start.list.selected = 1;
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_SETTINGS,
+          "the second row is not Settings");
+
+    start.list.selected = 2;
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_EXIT,
+          "the third row is not Exit");
+}
+
+static void test_app_opens_audio(void)
+{
+    br_app app;
+
+    begin("the app opens the audio device");
+
+    br_test_audio_reset();
+    CHECK(br_app_init(&app) == 0, "app init failed");
+    CHECK(br_test_audio_initialised(),
+          "br_audio_init was never called -- the Vita would be silent");
+    CHECK(app.screen == BR_APP_START, "the app did not open on the start screen");
+    br_app_free(&app);
+}
+
 static void test_world_names(br_game *game)
 {
     int i;
@@ -946,6 +1137,11 @@ int main(int argc, char **argv)
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);
+    test_throttle_lock(&game);
+    test_bike_cell(&game);
+    test_settings_toggles();
+    test_result_actions();
+    test_start_screen();
     test_engine_notes();
     test_impact_sound();
     test_bike_sprite_region();
@@ -956,6 +1152,7 @@ int main(int argc, char **argv)
     test_no_level_explodes(&game);
 
     br_game_free(&game);
+    test_app_opens_audio();
 
     printf("\n%s: %d failure(s)\n", g_failures ? "FAILED" : "OK", g_failures);
     return g_failures ? 1 : 0;

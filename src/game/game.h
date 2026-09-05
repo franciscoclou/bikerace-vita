@@ -44,6 +44,11 @@ typedef struct {
     float         brake_held;
     int           reversing;
 
+    /* Set whenever a run starts or resumes: the throttle stays shut until the
+     * button is let go, so the press that dismissed a menu does not also open
+     * it and start the clock. */
+    int           throttle_locked;
+
     int          *nearby;         /* scratch for broad-phase results */
     int           nearby_max;
 } br_game;
@@ -56,5 +61,7 @@ void br_game_restart(br_game *game);
 int  br_game_next_level(br_game *game);
 
 void br_game_update(br_game *game, const br_input *in, float dt);
+/* Ignore the throttle until it is released. */
+void br_game_lock_throttle(br_game *game);
 
 #endif /* BR_GAME_H */

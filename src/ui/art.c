@@ -35,6 +35,12 @@ int br_ui_art_load(br_ui_art *art)
     missing += load_one(&art->star_off, &art->t_star_off, "star_empty_dark.png") < 0;
     missing += load_one(&art->back, &art->t_back, "button_back_default.png") < 0;
     missing += load_one(&art->panel, &art->t_panel, "pause_fundo.png") < 0;
+    missing += load_one(&art->start_screen, &art->t_start_screen, "start_screen.png") < 0;
+    missing += load_one(&art->result, &art->t_result, "result_window.png") < 0;
+    missing += load_one(&art->wheel[BR_WHEEL_STANDARD],  &art->t_wheel[BR_WHEEL_STANDARD],  "wheel.png") < 0;
+    missing += load_one(&art->wheel[BR_WHEEL_ULTRA],     &art->t_wheel[BR_WHEEL_ULTRA],     "wheel_ultra.png") < 0;
+    missing += load_one(&art->wheel[BR_WHEEL_HALLOWEEN], &art->t_wheel[BR_WHEEL_HALLOWEEN], "wheel_halloween.png") < 0;
+    missing += load_one(&art->wheel[BR_WHEEL_SANTA],     &art->t_wheel[BR_WHEEL_SANTA],     "wheel_santa.png") < 0;
 
     art->complete = missing == 0;
     if (!art->complete)
@@ -45,6 +51,8 @@ int br_ui_art_load(br_ui_art *art)
 
 void br_ui_art_free(br_ui_art *art)
 {
+    int i;
+
     br_image_free(&art->background);
     br_image_free(&art->logo);
     br_image_free(&art->world_tile);
@@ -54,5 +62,9 @@ void br_ui_art_free(br_ui_art *art)
     br_image_free(&art->star_off);
     br_image_free(&art->back);
     br_image_free(&art->panel);
+    br_image_free(&art->start_screen);
+    br_image_free(&art->result);
+    for (i = 0; i < 4; i++)
+        br_image_free(&art->wheel[i]);
     memset(art, 0, sizeof(*art));
 }

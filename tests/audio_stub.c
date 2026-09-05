@@ -16,8 +16,10 @@ static struct {
 
 static int s_generation = 1;
 static int s_started;
+static int s_initialised;
 
-int  br_test_audio_started(void) { return s_started; }
+int  br_test_audio_started(void)     { return s_started; }
+int  br_test_audio_initialised(void) { return s_initialised; }
 void br_test_audio_reset(void)   { memset(s_voices, 0, sizeof(s_voices)); s_started = 0; }
 
 const br_sound *br_test_audio_looping(void)
@@ -38,8 +40,8 @@ int br_test_audio_active(void)
     return n;
 }
 
-int  br_audio_init(void)     { return 0; }
-void br_audio_shutdown(void) { }
+int  br_audio_init(void)     { s_initialised = 1; return 0; }
+void br_audio_shutdown(void) { s_initialised = 0; }
 
 br_voice br_audio_play(const br_sound *sound, float volume, int loop)
 {

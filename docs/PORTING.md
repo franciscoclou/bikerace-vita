@@ -56,6 +56,8 @@ Legend: **done** · **wip** · **todo**
 - [x] A pause screen: resume, restart, level list
 - [x] `GameAudio` — engine notes, landings, crash, win, Halloween, menu music
 - [x] Bike selection — all 21 single-player bikes, no shop, no currency
+- [x] A start screen over the game's own artwork, with settings and exit
+- [x] Settings: sound, music, and a page showing every control
 
 Nothing is gated: every world, level and bike can be picked from the start, and
 stars are recorded and shown rather than spent.

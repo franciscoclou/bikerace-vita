@@ -48,13 +48,9 @@ int main(void)
         float dt = (float)(now_us - prev_us) / 1000000.0f;
         prev_us = now_us;
 
+        /* Nothing in the game closes it by accident: leaving is the Exit
+         * option on the start screen, or the Vita's own home button. */
         br_input_poll(&g_input);
-        if ((g_input.buttons & (SCE_CTRL_START | SCE_CTRL_SELECT)) ==
-            (SCE_CTRL_START | SCE_CTRL_SELECT)) {
-            LOGI("START+SELECT held -- exiting");
-            break;
-        }
-
         br_app_update(&g_app, &g_input, dt);
         if (br_app_should_quit(&g_app))
             break;

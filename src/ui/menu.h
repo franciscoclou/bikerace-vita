@@ -24,7 +24,7 @@ typedef enum {
 typedef enum {
     BR_MENU_STAY = 0,
     BR_MENU_PLAY,
-    BR_MENU_QUIT
+    BR_MENU_BACK        /* out of the world list, to the start screen */
 } br_menu_action;
 
 typedef struct {
@@ -35,10 +35,8 @@ typedef struct {
 
     const br_ui_art *art;
 
-    /* Loaded only while the bike list is open. */
     br_image   bike_image[BR_BIKE_TYPE_COUNT];
     br_texture bike_tex[BR_BIKE_TYPE_COUNT];
-    int        bikes_loaded;
 
     /* Directional auto-repeat. */
     int   held_x, held_y;
@@ -57,9 +55,7 @@ void br_menu_free(br_menu *menu);
 
 void br_menu_open_worlds(br_menu *menu);
 void br_menu_open_levels(br_menu *menu, int world);
-/* Loads the bike artwork; br_menu_close_bikes frees it again. */
 void br_menu_open_bikes(br_menu *menu);
-void br_menu_close_bikes(br_menu *menu);
 
 br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                               const br_level_pack *pack);

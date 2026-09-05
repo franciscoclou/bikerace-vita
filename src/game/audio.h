@@ -45,10 +45,12 @@ typedef struct {
     int             engine_sfx;     /* which sample the engine voice holds, or -1 */
 
     br_voice        music_voice;
+    int             music_wanted;   /* what the app asked for, before the toggle */
     float           impact_cooldown;
     unsigned        spooky_seed;
 
     int             ready;
+    int             sound_on, music_on;
 } br_game_audio;
 
 int  br_game_audio_init(br_game_audio *audio);
@@ -66,6 +68,7 @@ void br_game_audio_crash(br_game_audio *audio);
 void br_game_audio_win(br_game_audio *audio);
 void br_game_audio_spooky(br_game_audio *audio);
 
+void br_game_audio_set_enabled(br_game_audio *audio, int sound_on, int music_on);
 void br_game_audio_music(br_game_audio *audio, int playing);
 void br_game_audio_silence(br_game_audio *audio);
 /* Runs the impact rate limit off game time. */
