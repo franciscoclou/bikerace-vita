@@ -4,6 +4,7 @@
 #include "../game/level.h"
 #include "../game/save.h"
 #include "../platform/input.h"
+#include "art.h"
 #include "font.h"
 
 /* World and level selection.
@@ -25,18 +26,10 @@ typedef enum {
 } br_menu_action;
 
 typedef struct {
-    br_image   background, world_tile, level_tile, level_tile_active;
-    br_image   star_on, star_off, logo, back;
-    br_texture t_background, t_world_tile, t_level_tile, t_level_tile_active;
-    br_texture t_star_on, t_star_off, t_logo, t_back;
-    int        have_art;
-} br_menu_art;
-
-typedef struct {
     br_menu_screen screen;
     int   world, level;
 
-    br_menu_art art;
+    const br_ui_art *art;
 
     /* Directional auto-repeat. */
     int   held_x, held_y;
@@ -50,8 +43,7 @@ typedef struct {
 #define BR_TOUCH_NONE (-1)
 #define BR_TOUCH_BACK (-2)
 
-int  br_menu_init(br_menu *menu);
-void br_menu_free(br_menu *menu);
+void br_menu_init(br_menu *menu, const br_ui_art *art);
 
 void br_menu_open_worlds(br_menu *menu);
 void br_menu_open_levels(br_menu *menu, int world);

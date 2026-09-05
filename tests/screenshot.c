@@ -121,6 +121,12 @@ int main(int argc, char **argv)
     race(&app, dir, "race_w01_l1", 0, 0, 2.0f);
     race(&app, dir, "race_w16_l1", 15, 0, 3.0f);
 
+    /* Pause sits on top of the frozen race. */
+    race(&app, dir, "race_w01_l3", 0, 2, 2.5f);
+    br_pause_open(&app.pause);
+    app.screen = BR_APP_PAUSED;
+    shoot(&app, dir, "pause", 2500);
+
     br_app_free(&app);
     return 0;
 }

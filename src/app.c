@@ -38,8 +38,9 @@ int br_app_init(br_app *app)
         return -1;
     br_save_load(&app->save);
 
-    if (br_menu_init(&app->menu) < 0)
-        return -1;
+    br_ui_art_load(&app->art);
+    br_menu_init(&app->menu, &app->art);
+    br_pause_init(&app->pause, &app->art);
 
     app->menu.world = app->save.last_world;
     app->menu.level = app->save.last_level;
@@ -54,7 +55,7 @@ int br_app_init(br_app *app)
 void br_app_free(br_app *app)
 {
     br_save_flush(&app->save);
-    br_menu_free(&app->menu);
+    br_ui_art_free(&app->art);
     br_save_free(&app->save);
     br_game_free(&app->game);
     br_font_free(&app->display);
@@ -95,10 +96,11 @@ static void update_menu(br_app *app, const br_input *in, float dt)
 
 static void update_race(br_app *app, const br_input *in, float dt)
 {
-    /* Start steps out of the race; Circle resets it, which br_game_update
-     * handles, and Cross moves on once the run is over. */
+    /* Start pauses; Circle resets, which br_game_update handles; Cross moves
+     * on once the run is over. */
     if (in->pause_pressed) {
-        back_to_menu(app);
+        br_pause_open(&app->pause);
+        app->screen = BR_APP_PAUSED;
         return;
     }
 
@@ -119,12 +121,32 @@ static void update_race(br_app *app, const br_input *in, float dt)
     br_save_remember_place(&app->save, app->game.world_index, app->game.level_index);
 }
 
+static void update_paused(br_app *app, const br_input *in, float dt)
+{
+    switch (br_pause_update(&app->pause, in, dt)) {
+    case BR_PAUSE_RESUME:
+        app->screen = BR_APP_RACING;
+        break;
+    case BR_PAUSE_RESTART:
+        br_game_restart(&app->game);
+        app->last_race_state = app->game.state;
+        app->screen = BR_APP_RACING;
+        break;
+    case BR_PAUSE_MENU:
+        back_to_menu(app);
+        break;
+    case BR_PAUSE_NOTHING:
+        break;
+    }
+}
+
 void br_app_update(br_app *app, const br_input *in, float dt)
 {
-    if (app->screen == BR_APP_MENU)
-        update_menu(app, in, dt);
-    else
-        update_race(app, in, dt);
+    switch (app->screen) {
+    case BR_APP_MENU:   update_menu(app, in, dt);   break;
+    case BR_APP_RACING: update_race(app, in, dt);   break;
+    case BR_APP_PAUSED: update_paused(app, in, dt); break;
+    }
 }
 
 /* A thin strip of state over the race: clock, stars and what to press next. */
@@ -184,9 +206,18 @@ void br_app_draw(br_app *app, unsigned time_ms)
         br_menu_draw(&app->menu, &app->game.pack, &app->save,
                      &app->display, &app->body);
     } else {
+        char where[64];
+
         br_scene_draw(&app->game.scene, app->game.level, &app->game.camera,
                       &app->game.bike, time_ms);
         draw_race_overlay(app);
+
+        if (app->screen == BR_APP_PAUSED) {
+            snprintf(where, sizeof(where), "%d-%d  %s",
+                     app->game.world_index + 1, app->game.level_index + 1,
+                     br_world_name(app->game.world_index));
+            br_pause_draw(&app->pause, &app->display, &app->body, where);
+        }
     }
 
     br_render_end();

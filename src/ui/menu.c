@@ -46,59 +46,18 @@ const char *br_world_name(int world_index)
     return s_world_names[world_index];
 }
 
-/* ------------------------------------------------------------------- art -- */
-
-static int load_art(br_image *image, br_texture *tex, const char *file)
+static void br_menu_reset_nav(br_menu *menu)
 {
-    char path[256];
-
-    snprintf(path, sizeof(path), "%s/ui/%s", br_asset_root(), file);
-    if (br_image_load(image, path) < 0)
-        return -1;
-    *tex = br_texture_region(image, 0.0f, 0.0f, 1.0f, 1.0f);
-    return 0;
+    menu->repeat_delay = 0.0f;
+    menu->held_x = menu->held_y = 0;
+    menu->touch_target = BR_TOUCH_NONE;
 }
 
-int br_menu_init(br_menu *menu)
+void br_menu_init(br_menu *menu, const br_ui_art *art)
 {
-    br_menu_art *art;
-    int missing = 0;
-
     memset(menu, 0, sizeof(*menu));
-    art = &menu->art;
-
-    missing += load_art(&art->background, &art->t_background, "fundo.png") < 0;
-    missing += load_art(&art->logo, &art->t_logo, "logo.png") < 0;
-    missing += load_art(&art->world_tile, &art->t_world_tile,
-                        "button_background_default.png") < 0;
-    missing += load_art(&art->level_tile, &art->t_level_tile,
-                        "button_level_default.png") < 0;
-    missing += load_art(&art->level_tile_active, &art->t_level_tile_active,
-                        "button_level_pressed.png") < 0;
-    missing += load_art(&art->star_on, &art->t_star_on, "star_fill_small.png") < 0;
-    missing += load_art(&art->star_off, &art->t_star_off, "star_empty_dark.png") < 0;
-    missing += load_art(&art->back, &art->t_back, "button_back_default.png") < 0;
-
-    art->have_art = missing == 0;
-    if (!art->have_art)
-        LOGW("menu: %d art files missing from %s/ui -- falling back to plain "
-             "panels", missing, br_asset_root());
-    return 0;
-}
-
-void br_menu_free(br_menu *menu)
-{
-    br_menu_art *art = &menu->art;
-
-    br_image_free(&art->background);
-    br_image_free(&art->logo);
-    br_image_free(&art->world_tile);
-    br_image_free(&art->level_tile);
-    br_image_free(&art->level_tile_active);
-    br_image_free(&art->star_on);
-    br_image_free(&art->star_off);
-    br_image_free(&art->back);
-    memset(menu, 0, sizeof(*menu));
+    menu->art = art;
+    br_menu_reset_nav(menu);
 }
 
 /* ---------------------------------------------------------------- layout -- */
@@ -185,18 +144,14 @@ static int over_back_button(float px, float py)
 void br_menu_open_worlds(br_menu *menu)
 {
     menu->screen = BR_MENU_WORLDS;
-    menu->repeat_delay = 0.0f;
-    menu->held_x = menu->held_y = 0;
-    menu->touch_target = BR_TOUCH_NONE;
+    br_menu_reset_nav(menu);
 }
 
 void br_menu_open_levels(br_menu *menu, int world)
 {
     menu->screen = BR_MENU_LEVELS;
     menu->world = world;
-    menu->repeat_delay = 0.0f;
-    menu->held_x = menu->held_y = 0;
-    menu->touch_target = BR_TOUCH_NONE;
+    br_menu_reset_nav(menu);
 }
 
 /* True on the frame a direction is first pushed, and again while it is held. */
@@ -327,8 +282,8 @@ static const br_color TILE_SEL     = { 1.00f, 0.74f, 0.34f, 1.00f };
 
 static void draw_background(const br_menu *menu)
 {
-    if (menu->art.have_art) {
-        br_draw_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &menu->art.t_background, NULL);
+    if (br_ui_has(&menu->art->t_background)) {
+        br_draw_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &menu->art->t_background, NULL);
         br_fill_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &DIM);
     } else {
         br_fill_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &PANEL);
@@ -338,7 +293,7 @@ static void draw_background(const br_menu *menu)
 static void draw_tile(const br_menu *menu, const br_texture *tex, const br_color *tint,
                       float x, float y, float w, float h, int selected)
 {
-    if (menu->art.have_art && tex->image) {
+    if (br_ui_has(tex)) {
         br_draw_rect(x, y, x + w, y + h, tex, tint);
     } else {
         br_fill_rect(x, y, w, h, selected ? &TILE_SEL : &PANEL);
@@ -360,11 +315,11 @@ static void draw_stars(const br_menu *menu, float x, float y, float size,
 
     for (i = 0; i < 3; i++) {
         int filled = i < earned;
-        const br_texture *tex = filled ? &menu->art.t_star_on
-                                       : &menu->art.t_star_off;
+        const br_texture *tex = filled ? &menu->art->t_star_on
+                                       : &menu->art->t_star_off;
         float sx = x + (float)i * (size + 3.0f);
 
-        if (menu->art.have_art && tex->image)
+        if (br_ui_has(tex))
             br_draw_rect(sx, y, sx + size, y + size, tex,
                          filled ? NULL : empty_tint);
         else
@@ -379,12 +334,12 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
     char text[64];
     int i;
 
-    if (menu->art.have_art) {
+    if (br_ui_has(&menu->art->t_logo)) {
         float logo_h = 62.0f;
-        float logo_w = logo_h * (float)menu->art.logo.width /
-                                (float)menu->art.logo.height;
+        float logo_w = logo_h * (float)menu->art->logo.width /
+                                (float)menu->art->logo.height;
         br_draw_rect(24.0f, 12.0f, 24.0f + logo_w, 12.0f + logo_h,
-                     &menu->art.t_logo, NULL);
+                     &menu->art->t_logo, NULL);
     } else {
         br_font_draw(display, "BIKE RACE", 24.0f, 20.0f, 40.0f, &TEXT);
     }
@@ -399,7 +354,7 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
 
         tile_origin(i, WORLD_COLS, WORLD_TILE_W, WORLD_TILE_H, WORLD_GAP,
                     WORLD_TOP, &x, &y);
-        draw_tile(menu, &menu->art.t_world_tile, selected ? &TILE_SEL : NULL,
+        draw_tile(menu, &menu->art->t_world_tile, selected ? &TILE_SEL : NULL,
                   x, y, WORLD_TILE_W, WORLD_TILE_H, selected);
 
         snprintf(text, sizeof(text), "%d", pack->worlds[i].id);
@@ -441,8 +396,8 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
 
         tile_origin(i, LEVEL_COLS, LEVEL_TILE_W, LEVEL_TILE_H, LEVEL_GAP,
                     LEVEL_TOP, &x, &y);
-        draw_tile(menu, selected ? &menu->art.t_level_tile_active
-                                 : &menu->art.t_level_tile,
+        draw_tile(menu, selected ? &menu->art->t_level_tile_active
+                                 : &menu->art->t_level_tile,
                   NULL, x, y, LEVEL_TILE_W, LEVEL_TILE_H, selected);
 
         /* The real track, drawn from the level's own geometry. */
@@ -465,9 +420,9 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
                    selected ? &STAR_OFF_SEL : &STAR_OFF);
     }
 
-    if (menu->art.have_art && menu->art.t_back.image)
+    if (br_ui_has(&menu->art->t_back))
         br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
-                     &menu->art.t_back,
+                     &menu->art->t_back,
                      menu->touch_target == BR_TOUCH_BACK ? &TILE_SEL : NULL);
     else
         br_fill_rect(BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE, &PANEL);

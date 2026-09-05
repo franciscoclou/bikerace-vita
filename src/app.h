@@ -5,21 +5,26 @@
 #include "game/save.h"
 #include "platform/input.h"
 #include "ui/font.h"
+#include "ui/art.h"
 #include "ui/menu.h"
+#include "ui/pause.h"
 
 /* Ties the menu, the race and the save file together. main.c only boots the
  * hardware and runs the loop; everything about what is on screen lives here. */
 
 typedef enum {
     BR_APP_MENU = 0,
-    BR_APP_RACING
+    BR_APP_RACING,
+    BR_APP_PAUSED
 } br_app_screen;
 
 typedef struct {
-    br_font  display, body;
-    br_save  save;
-    br_menu  menu;
-    br_game  game;
+    br_font   display, body;
+    br_ui_art art;
+    br_save   save;
+    br_menu   menu;
+    br_pause  pause;
+    br_game   game;
 
     br_app_screen screen;
     br_game_state last_race_state;

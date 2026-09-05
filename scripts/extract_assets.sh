@@ -56,7 +56,8 @@ echo ">> menu art"
 mkdir -p "$OUT/ui"
 for f in fundo.png logo.png button_background_default.png \
          button_level_default.png button_level_pressed.png \
-         star_fill_small.png star_empty_dark.png button_back_default.png; do
+         star_fill_small.png star_empty_dark.png button_back_default.png \
+         pause_fundo.png; do
   cp "apk/res/drawable-xhdpi/$f" "$OUT/ui/$f"
 done
 echo "   $(ls "$OUT"/ui | wc -l) files"

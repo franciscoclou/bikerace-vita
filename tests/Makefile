@@ -20,7 +20,7 @@ CORE := \
   ../src/game/board.c ../src/game/level.c ../src/game/camera.c \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/game/save.c ../src/platform/fs.c \
-  ../src/ui/preview.c ../src/ui/menu.c ../src/app.c \
+  ../src/ui/preview.c ../src/ui/art.c ../src/ui/menu.c ../src/ui/pause.c ../src/app.c \
   ../src/ui/font.c \
   stub/gl_stub.c log_stub.c blobs_stub.c
 
