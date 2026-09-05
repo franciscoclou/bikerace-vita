@@ -11,15 +11,40 @@
  * out of the ground on contact. There is no general collision system: each
  * wheel is resolved against each nearby track segment directly. */
 
+/* Every bike single player can ride. The shop and its currency are not
+ * ported, so all of them are simply available. */
 typedef enum {
     BR_BIKE_REGULAR = 0,
-    BR_BIKE_KIDS,
     BR_BIKE_SUPER,
-    BR_BIKE_ACROBATIC,
-    BR_BIKE_ULTRA,
+    BR_BIKE_KIDS,
     BR_BIKE_GHOST,
+    BR_BIKE_NINJA,
+    BR_BIKE_COP,
+    BR_BIKE_RETRO,
+    BR_BIKE_BRONZE,
+    BR_BIKE_SILVER,
+    BR_BIKE_GOLD,
+    BR_BIKE_GIRL,
+    BR_BIKE_ACROBATIC,
+    BR_BIKE_BEAT,
+    BR_BIKE_SPAM,
+    BR_BIKE_ULTRA,
+    BR_BIKE_ZOMBIE,
+    BR_BIKE_ARMY,
+    BR_BIKE_HALLOWEEN,
+    BR_BIKE_THANKSGIVING,
+    BR_BIKE_SANTA,
+    BR_BIKE_EASTER,
     BR_BIKE_TYPE_COUNT
 } br_bike_type;
+
+/* Three bikes carry their own wheel art. */
+typedef enum {
+    BR_WHEEL_STANDARD = 0,
+    BR_WHEEL_ULTRA,
+    BR_WHEEL_HALLOWEEN,
+    BR_WHEEL_SANTA
+} br_wheel_kind;
 
 typedef enum {
     BR_BIKE_IDLE = 0,
@@ -30,8 +55,10 @@ typedef enum {
 } br_bike_state;
 
 typedef struct {
-    const char *name;
+    const char *name;        /* internal, for logs */
+    const char *label;       /* as the game itself names it */
     const char *sprite;      /* file under textures/ */
+    br_wheel_kind wheel;
     float drive_cap;         /* Java field e */
     float drive;             /* Java field f */
     float brake;             /* Java field g */

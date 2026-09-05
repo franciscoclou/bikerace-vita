@@ -44,6 +44,8 @@ int br_app_init(br_app *app)
 
     app->menu.world = app->save.last_world;
     app->menu.level = app->save.last_level;
+    app->menu.bike  = app->save.bike_type;
+    app->game.bike_type = (br_bike_type)app->save.bike_type;
     br_menu_open_worlds(&app->menu);
     app->screen = BR_APP_MENU;
     br_game_audio_music(&app->game.audio, 1);
@@ -56,6 +58,7 @@ int br_app_init(br_app *app)
 void br_app_free(br_app *app)
 {
     br_save_flush(&app->save);
+    br_menu_free(&app->menu);
     br_ui_art_free(&app->art);
     br_save_free(&app->save);
     br_game_free(&app->game);
@@ -74,6 +77,11 @@ static void back_to_menu(br_app *app)
 
 static void start_race(br_app *app)
 {
+    if (app->game.bike_type != (br_bike_type)app->menu.bike) {
+        app->game.bike_type = (br_bike_type)app->menu.bike;
+        app->save.bike_type = app->menu.bike;
+        app->save.dirty = 1;
+    }
     if (br_game_load(&app->game, app->menu.world, app->menu.level) < 0) {
         LOGE("app: could not start %d-%d", app->menu.world + 1, app->menu.level + 1);
         return;

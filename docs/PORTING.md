@@ -45,26 +45,26 @@ Legend: **done** · **wip** · **todo**
 - [ ] Bike sprite offsets are in place for six bikes; the rest of the shop
       bikes need their rows from `GameSceneDirector`'s tables
 
-## Phase 4 — the game around the game  ⬅ you are here
+## Phase 4 — the game around the game  ✅ done
 
 - [x] Save data in `ux0:data/bikerace/save.bin` (replaces `SharedPreferences`)
 - [x] World and level selection, with track previews drawn from the real
       geometry — something the Android version had nothing to draw from
 - [x] Text, from the two faces the APK ships, baked by `scripts/makefonts.sh`
 - [x] A race overlay: clock, level name, star targets, finish and crash states
-- [ ] `GameAudio` (`bikerace.v`) — engine-note crossfade, crash, win, ambience
-- [ ] Bike selection — all bikes unlocked, no shop, no currency
-- [ ] A pause screen, rather than Start dropping straight back to the menu
+- [x] Touch in the menus, alongside the d-pad
+- [x] A pause screen: resume, restart, level list
+- [x] `GameAudio` — engine notes, landings, crash, win, Halloween, menu music
+- [x] Bike selection — all 21 single-player bikes, no shop, no currency
 
-Nothing is gated: every world and level can be picked from the start, and
+Nothing is gated: every world, level and bike can be picked from the start, and
 stars are recorded and shown rather than spent.
 
-### Notes for the audio work
+### The audio mapping, as ported
 
-The mapping is already read out of `GameAudio`, so it does not need
-rediscovering. Engine notes are five looping samples crossfaded by a small
-state machine (stopped → slow → accelerating → fast, and hi→medium on the way
-back down), switching when the current sample is 95% through:
+Engine notes are five samples crossfaded by a state machine (stopped → slow →
+accelerating → fast, and hi→medium on the way back down), handing over when the
+current sample is 95% through:
 
 | Sound | File |
 |---|---|
@@ -75,6 +75,19 @@ back down), switching when the current sample is 95% through:
 
 Fall impact only fires when the contact force is at least 300 and the bike was
 airborne, rate-limited to one per sample length.
+
+## Where the numbers came from
+
+Every per-bike figure in [src/game/bike.c](../src/game/bike.c) is the
+original's: handling from `Bike.java`'s factory methods, gravity from `Game`'s
+table, sprite width and offset from `GameSceneDirector`, the atlas region from
+`TextureCoordinates`, and the names from the APK's own string table by way of
+`BikeUnlockDialog`'s bike-ordinal switch. That last one is how "Spam" turned
+out to be the High Tech Bike.
+
+Reading names out of `resources.arsc` needs the locale field at the right
+offset — it sits after the 4-byte size and the 4-byte IMSI block. Get it wrong
+and the parser happily returns a translated table instead of the default one.
 
 ## What the menus are, and are not
 

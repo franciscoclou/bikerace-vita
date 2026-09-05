@@ -30,20 +30,20 @@ cat <<TXT
  C) Assets -- needed once, and again whenever
     ./scripts/extract_assets.sh changes what it produces.
 
-    Just what the game loads today (the ten 1024 world atlases and the
-    regular bike, ~1.8 MB):
+    Everything the game loads, minus the optional menu track (~8 MB):
+    the ten world atlases, all 21 bikes, the menu art and the sounds.
 
-    for f in \$(cd assets_out/textures && ls bikerace_textura*b.png m00.png); do
-      curl --ftp-create-dirs -T "assets_out/textures/\$f" \\
-           "$FTP_URL/ux0:/data/bikerace/textures/\$f"
-    done
+    find assets_out/textures assets_out/ui assets_out/sfx -type f \\
+      | while read -r f; do
+          curl --ftp-create-dirs -T "\$f" \\
+               "$FTP_URL/ux0:/data/bikerace/\${f#assets_out/}"
+        done
 
-    Everything, including the UI art the menus will need (~14 MB):
+    The menu music is a further 8.8 MB on its own, and the game runs
+    without it:
 
-    find assets_out -type f -printf '%P\n' | while read -r f; do
-      curl --ftp-create-dirs -T "assets_out/\$f" \\
-           "$FTP_URL/ux0:/data/bikerace/\$f"
-    done
+    curl --ftp-create-dirs -T assets_out/music/musica_menu.wav \\
+         "$FTP_URL/ux0:/data/bikerace/music/musica_menu.wav"
 
 ------------------------------------------------------------------
 TXT

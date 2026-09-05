@@ -17,6 +17,7 @@
 typedef struct {
     br_image   atlas;
     br_image   bike_image;
+    br_image   wheel_image;   /* only bikes with their own wheel art use this */
     int        atlas_index;
     br_bike_type bike_type;
 

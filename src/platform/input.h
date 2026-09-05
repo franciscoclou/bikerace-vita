@@ -27,6 +27,7 @@ typedef struct {
     int   pause_pressed;   /* edge-triggered */
     int   back_pressed;
     int   confirm_pressed;
+    int   bikes_pressed;   /* Triangle */
 
     /* Held menu direction from the d-pad or the left stick, -1/0/+1.
      * Auto-repeat is the menu's business, since it needs the frame time. */

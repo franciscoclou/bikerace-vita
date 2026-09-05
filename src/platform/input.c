@@ -99,5 +99,6 @@ void br_input_poll(br_input *in)
         in->pause_pressed   = (pressed & SCE_CTRL_START)  != 0;
         in->back_pressed    = (pressed & SCE_CTRL_CIRCLE) != 0;
         in->confirm_pressed = (pressed & SCE_CTRL_CROSS)  != 0;
+        in->bikes_pressed   = (pressed & SCE_CTRL_TRIANGLE) != 0;
     }
 }

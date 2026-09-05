@@ -1,6 +1,7 @@
 #ifndef BR_MENU_H
 #define BR_MENU_H
 
+#include "../game/bike.h"
 #include "../game/level.h"
 #include "../game/save.h"
 #include "../platform/input.h"
@@ -16,7 +17,8 @@
 
 typedef enum {
     BR_MENU_WORLDS = 0,
-    BR_MENU_LEVELS
+    BR_MENU_LEVELS,
+    BR_MENU_BIKES
 } br_menu_screen;
 
 typedef enum {
@@ -27,9 +29,16 @@ typedef enum {
 
 typedef struct {
     br_menu_screen screen;
+    br_menu_screen came_from;
     int   world, level;
+    int   bike;          /* br_bike_type, kept as int so it can be navigated */
 
     const br_ui_art *art;
+
+    /* Loaded only while the bike list is open. */
+    br_image   bike_image[BR_BIKE_TYPE_COUNT];
+    br_texture bike_tex[BR_BIKE_TYPE_COUNT];
+    int        bikes_loaded;
 
     /* Directional auto-repeat. */
     int   held_x, held_y;
@@ -44,9 +53,13 @@ typedef struct {
 #define BR_TOUCH_BACK (-2)
 
 void br_menu_init(br_menu *menu, const br_ui_art *art);
+void br_menu_free(br_menu *menu);
 
 void br_menu_open_worlds(br_menu *menu);
 void br_menu_open_levels(br_menu *menu, int world);
+/* Loads the bike artwork; br_menu_close_bikes frees it again. */
+void br_menu_open_bikes(br_menu *menu);
+void br_menu_close_bikes(br_menu *menu);
 
 br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                               const br_level_pack *pack);

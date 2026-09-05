@@ -15,25 +15,60 @@
 /* Constants per bike, from Bike.java's factory methods, Game.java's gravity
  * table and GameSceneDirector's sprite tables. Only the bikes reachable in
  * single player are listed; the rest are shop and World Cup variants. */
+/* Every column comes from the original: the handling numbers from Bike.java's
+ * factory methods, gravity from Game's per-bike table, the sprite width and
+ * offset from GameSceneDirector, the atlas region from TextureCoordinates, and
+ * the names from the APK's own string table.
+ *
+ * Order matches the enum, which matches the game's own bike ordinal order. */
 static const br_bike_def s_defs[BR_BIKE_TYPE_COUNT] = {
-    { "regular",   "m00.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f  },
-      { 0.0f, 0.0f, 0.7890625f,  0.6640625f  } },
-    { "kids",      "m05.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 1, 0, -3.0f, 0.50666666f, {  0.02f,  -0.01f  },
-      { 0.0f, 0.0f, 0.7890625f,  0.703125f   } },
-    { "super",     "m09.png", 132.0f,  32.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 1, 0, -4.0f, 0.61333334f, { -0.04f,   0.015f },
-      { 0.0f, 0.0f, 0.8984375f,  0.6640625f  } },
-    { "acrobatic", "m07.png",  44.0f,  16.0f, 12.0f, 1.5f, 2000.0f,
-      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.765625f,   { -0.0235f, 0.0f   },
-      { 0.0f, 0.0f, 0.765625f,   0.63671875f } },
-    { "ultra",     "m06.png", 154.0f,  40.0f, 24.0f, 2.0f, 2000.0f,
-      0.25f, -0.285f,  1, 0, 0, -6.0f, 0.71466666f, {  0.01f,  -0.033f },
-      { 0.0f, 0.0f, 1.0f,        0.67578125f } },
-    { "ghost",     "m13.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f  },
-      { 0.0f, 0.0f, 0.78125f,    0.6640625f  } },
+#define REG_UV   { 0.0f, 0.0f, 0.7890625f,  0.6640625f  }
+    /* name          label                sprite     wheel
+       cap    drive  brake  lean  spin     front   rear    inv head rev  grav   sprite_w      offset               uv */
+    { "regular",     "Regular Bike",      "m00.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.0f,    -0.01f  }, REG_UV },
+    { "super",       "Super Bike",        "m09.png", BR_WHEEL_STANDARD,
+      132.0f, 32.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   1, 1, 0, -4.0f, 0.61333334f, { -0.04f,    0.015f }, { 0.0f, 0.0f, 0.8984375f,  0.6640625f  } },
+    { "kids",        "Kids Mode",         "m05.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   1, 1, 0, -3.0f, 0.50666666f, {  0.02f,   -0.01f  }, { 0.0f, 0.0f, 0.7890625f,  0.703125f   } },
+    { "ghost",       "Ghost Rider",       "m13.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   1, 0, 0, -4.0f, 0.53866667f, {  0.0f,    -0.01f  }, { 0.0f, 0.0f, 0.78125f,    0.6640625f  } },
+    { "ninja",       "Ninja Bike",        "m15.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.0f,    -0.04f  }, { 0.0f, 0.0f, 0.80078125f, 0.64453125f } },
+    { "cop",         "Police Bike",       "m14.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, { -0.036f,   0.0f   }, { 0.0f, 0.0f, 0.859375f,   0.68359375f } },
+    { "retro",       "Retro Bike",        "m11.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.54933333f, { -0.015f,  -0.01f  }, { 0.0f, 0.0f, 0.7890625f,  0.67578125f } },
+    { "bronze",      "Bronze Bike",       "m02.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.54933333f, { -0.02f,    0.0f   }, { 0.0f, 0.0f, 0.734375f,   0.65625f    } },
+    { "silver",      "Silver Bike",       "m03.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.54933333f, { -0.02f,    0.0f   }, { 0.0f, 0.0f, 0.734375f,   0.65625f    } },
+    { "gold",        "Gold Bike",         "m04.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.54933333f, { -0.02f,    0.0f   }, { 0.0f, 0.0f, 0.734375f,   0.65625f    } },
+    { "girl",        "Girl Bike",         "m12.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.005f,  -0.01f  }, { 0.0f, 0.0f, 0.7890625f,  0.66796875f } },
+    { "acrobatic",   "Acrobatic Bike",    "m07.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.5f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, { -0.0235f,  0.0f   }, { 0.0f, 0.0f, 0.765625f,   0.63671875f } },
+    { "beat",        "Hog Bike",          "m10.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.25f,  -0.285f, 0, 0, 0, -4.0f, 0.7066667f,  { -0.053f,  -0.065f }, { 0.0f, 0.0f, 1.0f,        0.61328125f } },
+    { "spam",        "High Tech Bike",    "m01.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.61333334f, {  0.0f,    -0.015f }, { 0.0f, 0.0f, 0.8359375f,  0.7109375f  } },
+    { "ultra",       "Ultra Bike",        "m06.png", BR_WHEEL_ULTRA,
+      154.0f, 40.0f, 24.0f, 2.0f, 2000.0f, 0.25f,  -0.285f, 1, 0, 0, -6.0f, 0.71466666f, {  0.01f,   -0.033f }, { 0.0f, 0.0f, 1.0f,        0.67578125f } },
+    { "zombie",      "Zombie Bike",       "m08.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   1, 1, 0, -4.0f, 0.53866667f, {  0.0f,     0.016f }, { 0.0f, 0.0f, 0.76171875f, 0.6640625f  } },
+    { "army",        "Army Bike",         "m18.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.25f,  -0.285f, 0, 0, 0, -4.0f, 0.7066667f,  { -0.035f,  -0.07f  }, { 0.0f, 0.0f, 1.0f,        0.61328125f } },
+    { "halloween",   "Halloween Bike",    "m21.png", BR_WHEEL_HALLOWEEN,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.55466664f, { -0.01f,    0.011f }, { 0.0f, 0.0f, 0.81640625f, 0.70703125f } },
+    { "thanksgiving","Thanksgiving Bike", "m22.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.5733333f,  { -0.043f,   0.021f }, { 0.0f, 0.0f, 0.828125f,   0.7734375f  } },
+    /* The only bike whose brake is reverse outright, rather than braking. */
+    { "santa",       "Santa's Bike",      "m23.png", BR_WHEEL_SANTA,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 1, -4.0f, 0.47733334f, { -0.044f,   0.0f   }, { 0.0f, 0.0f, 0.69140625f, 0.65625f    } },
+    { "easter",      "Easter Bike",       "m24.png", BR_WHEEL_STANDARD,
+       44.0f, 16.0f, 12.0f, 1.0f, 2000.0f, 0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.588f,      { -0.005f,   0.003f }, { 0.0f, 0.0f, 0.89453125f, 0.703125f   } },
+#undef REG_UV
 };
 
 const br_bike_def *br_bike_def_for(br_bike_type type)

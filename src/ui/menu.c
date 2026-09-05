@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "../engine/render.h"
+#include "../game/bike.h"
 #include "../platform/fs.h"
 #include "../platform/log.h"
 #include "preview.h"
@@ -25,6 +26,12 @@
 
 #define REPEAT_FIRST 0.32f
 #define REPEAT_NEXT  0.10f
+
+#define BIKE_COLS   7
+#define BIKE_TILE_W 124.0f
+#define BIKE_TILE_H 104.0f
+#define BIKE_GAP     10.0f
+#define BIKE_TOP    120.0f
 
 #define BACK_SIZE 54.0f
 #define BACK_X    26.0f
@@ -58,6 +65,47 @@ void br_menu_init(br_menu *menu, const br_ui_art *art)
     memset(menu, 0, sizeof(*menu));
     menu->art = art;
     br_menu_reset_nav(menu);
+}
+
+void br_menu_free(br_menu *menu)
+{
+    br_menu_close_bikes(menu);
+}
+
+void br_menu_open_bikes(br_menu *menu)
+{
+    char path[256];
+    int i;
+
+    if (!menu->bikes_loaded) {
+        for (i = 0; i < BR_BIKE_TYPE_COUNT; i++) {
+            const br_bike_def *def = br_bike_def_for((br_bike_type)i);
+
+            snprintf(path, sizeof(path), "%s/textures/%s", br_asset_root(), def->sprite);
+            if (br_image_load(&menu->bike_image[i], path) == 0)
+                menu->bike_tex[i] = br_texture_region(&menu->bike_image[i],
+                                                      def->sprite_uv[0], def->sprite_uv[1],
+                                                      def->sprite_uv[2], def->sprite_uv[3]);
+        }
+        menu->bikes_loaded = 1;
+    }
+
+    menu->came_from = menu->screen;
+    menu->screen = BR_MENU_BIKES;
+    br_menu_reset_nav(menu);
+}
+
+void br_menu_close_bikes(br_menu *menu)
+{
+    int i;
+
+    if (!menu->bikes_loaded)
+        return;
+    for (i = 0; i < BR_BIKE_TYPE_COUNT; i++) {
+        br_image_free(&menu->bike_image[i]);
+        memset(&menu->bike_tex[i], 0, sizeof(menu->bike_tex[i]));
+    }
+    menu->bikes_loaded = 0;
 }
 
 /* ---------------------------------------------------------------- layout -- */
@@ -96,6 +144,12 @@ static int world_tile_at(float px, float py, int count)
 {
     return tile_at(px, py, count, WORLD_COLS, WORLD_TILE_W, WORLD_TILE_H,
                    WORLD_GAP, WORLD_TOP);
+}
+
+static int bike_tile_at(float px, float py, int count)
+{
+    return tile_at(px, py, count, BIKE_COLS, BIKE_TILE_W, BIKE_TILE_H,
+                   BIKE_GAP, BIKE_TOP);
 }
 
 static int level_tile_at(float px, float py, int count)
@@ -193,42 +247,78 @@ static void move_selection(int *index, int count, int columns, int dx, int dy)
     *index = next;
 }
 
+/* What a screen is a grid of: how many, how wide, and what the cursor is. */
+typedef struct {
+    int  count;
+    int  columns;
+    int *selection;
+} grid;
+
+static grid grid_for(br_menu *menu, const br_level_pack *pack)
+{
+    grid g;
+
+    switch (menu->screen) {
+    case BR_MENU_WORLDS:
+        g.count = pack->world_count;
+        g.columns = WORLD_COLS;
+        g.selection = &menu->world;
+        break;
+    case BR_MENU_BIKES:
+        g.count = BR_BIKE_TYPE_COUNT;
+        g.columns = BIKE_COLS;
+        g.selection = &menu->bike;
+        break;
+    default:
+        g.count = pack->worlds[menu->world].level_count;
+        g.columns = LEVEL_COLS;
+        g.selection = &menu->level;
+        break;
+    }
+    return g;
+}
+
 /* Touch selects on the way down and commits on the way up, but only when both
  * land on the same thing -- so a mis-touch can be slid off and released. */
-static int touch_target_now(const br_menu *menu, const br_input *in, int level_count)
+static int touch_target_now(const br_menu *menu, const br_input *in, int count)
 {
-    if (menu->screen == BR_MENU_WORLDS)
-        return world_tile_at(in->touch_ui_x, in->touch_ui_y, level_count);
-    if (over_back_button(in->touch_ui_x, in->touch_ui_y))
-        return BR_TOUCH_BACK;
-    return level_tile_at(in->touch_ui_x, in->touch_ui_y, level_count);
+    switch (menu->screen) {
+    case BR_MENU_WORLDS:
+        return world_tile_at(in->touch_ui_x, in->touch_ui_y, count);
+    case BR_MENU_BIKES:
+        if (over_back_button(in->touch_ui_x, in->touch_ui_y))
+            return BR_TOUCH_BACK;
+        return bike_tile_at(in->touch_ui_x, in->touch_ui_y, count);
+    default:
+        if (over_back_button(in->touch_ui_x, in->touch_ui_y))
+            return BR_TOUCH_BACK;
+        return level_tile_at(in->touch_ui_x, in->touch_ui_y, count);
+    }
 }
 
 br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                               const br_level_pack *pack)
 {
-    int worlds = menu->screen == BR_MENU_WORLDS;
-    int count = worlds ? pack->world_count
-                       : pack->worlds[menu->world].level_count;
-    int *selection = worlds ? &menu->world : &menu->level;
-    int columns = worlds ? WORLD_COLS : LEVEL_COLS;
+    grid g = grid_for(menu, pack);
     int commit = 0, back = 0;
 
-    if (*selection >= count)
-        *selection = count - 1;
+    if (*g.selection >= g.count)
+        *g.selection = g.count - 1;
+    if (*g.selection < 0)
+        *g.selection = 0;
 
     if (repeated(menu, in, dt))
-        move_selection(selection, count, columns, in->nav_x, in->nav_y);
+        move_selection(g.selection, g.count, g.columns, in->nav_x, in->nav_y);
 
     if (in->touch_active) {
-        int target = touch_target_now(menu, in, count);
+        int target = touch_target_now(menu, in, g.count);
 
         if (in->touch_began)
             menu->touch_target = target;
         if (target >= 0 && target == menu->touch_target)
-            *selection = target;
+            *g.selection = target;
     } else if (in->touch_ended) {
-        int target = touch_target_now(menu, in, count);
+        int target = touch_target_now(menu, in, g.count);
 
         if (target == menu->touch_target) {
             if (target == BR_TOUCH_BACK)
@@ -244,19 +334,41 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
     if (in->back_pressed)
         back = 1;
 
-    if (worlds) {
+    switch (menu->screen) {
+    case BR_MENU_BIKES:
+        /* The choice applies as the cursor moves, so either button just
+         * returns to wherever the list was opened from. */
+        if (commit || back) {
+            br_menu_close_bikes(menu);
+            if (menu->came_from == BR_MENU_LEVELS)
+                br_menu_open_levels(menu, menu->world);
+            else
+                br_menu_open_worlds(menu);
+        }
+        return BR_MENU_STAY;
+
+    case BR_MENU_WORLDS:
+        if (in->bikes_pressed) {
+            br_menu_open_bikes(menu);
+            return BR_MENU_STAY;
+        }
         if (commit) {
             br_menu_open_levels(menu, menu->world);
             return BR_MENU_STAY;
         }
         return back ? BR_MENU_QUIT : BR_MENU_STAY;
-    }
 
-    if (commit)
-        return BR_MENU_PLAY;
-    if (back)
-        br_menu_open_worlds(menu);
-    return BR_MENU_STAY;
+    default:
+        if (in->bikes_pressed) {
+            br_menu_open_bikes(menu);
+            return BR_MENU_STAY;
+        }
+        if (commit)
+            return BR_MENU_PLAY;
+        if (back)
+            br_menu_open_worlds(menu);
+        return BR_MENU_STAY;
+    }
 }
 
 /* ------------------------------------------------------------------ draw -- */
@@ -327,6 +439,20 @@ static void draw_stars(const br_menu *menu, float x, float y, float size,
     }
 }
 
+static void draw_back_button(const br_menu *menu, const br_font *body,
+                             const char *hint)
+{
+    if (br_ui_has(&menu->art->t_back))
+        br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
+                     &menu->art->t_back,
+                     menu->touch_target == BR_TOUCH_BACK ? &TILE_SEL : NULL);
+    else
+        br_fill_rect(BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE, &PANEL);
+
+    br_font_draw(body, hint, BACK_X + BACK_SIZE + 14.0f, BACK_Y + 16.0f,
+                 22.0f, &TEXT);
+}
+
 static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
                         const br_save *save, const br_font *display,
                         const br_font *body)
@@ -368,8 +494,8 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
                               23.0f, &INK);
     }
 
-    br_font_draw(body, "Cross or tap  select      Circle  quit", 24.0f,
-                 SCREEN_H - 34.0f, 22.0f, &TEXT);
+    br_font_draw(body, "Cross or tap  select      Circle  quit      Triangle  bikes",
+                 24.0f, SCREEN_H - 34.0f, 22.0f, &TEXT);
 }
 
 static void draw_levels(const br_menu *menu, const br_level_pack *pack,
@@ -420,15 +546,48 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
                    selected ? &STAR_OFF_SEL : &STAR_OFF);
     }
 
-    if (br_ui_has(&menu->art->t_back))
-        br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
-                     &menu->art->t_back,
-                     menu->touch_target == BR_TOUCH_BACK ? &TILE_SEL : NULL);
-    else
-        br_fill_rect(BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE, &PANEL);
+    draw_back_button(menu, body,
+                     "Cross or tap  play      Circle  back      Triangle  bikes");
+}
 
-    br_font_draw(body, "Cross or tap  play      Circle  back",
-                 BACK_X + BACK_SIZE + 14.0f, BACK_Y + 16.0f, 22.0f, &TEXT);
+static void draw_bikes(const br_menu *menu, const br_font *display,
+                       const br_font *body)
+{
+    const br_bike_def *chosen = br_bike_def_for((br_bike_type)menu->bike);
+    int i;
+
+    br_font_draw(display, "BIKES", 32.0f, 22.0f, 40.0f, &TEXT);
+    br_font_draw_right(body, chosen->label, SCREEN_W - 32.0f, 34.0f, 28.0f, &TEXT);
+
+    for (i = 0; i < BR_BIKE_TYPE_COUNT; i++) {
+        const br_texture *sprite = &menu->bike_tex[i];
+        int selected = i == menu->bike;
+        float x, y;
+
+        tile_origin(i, BIKE_COLS, BIKE_TILE_W, BIKE_TILE_H, BIKE_GAP, BIKE_TOP,
+                    &x, &y);
+        draw_tile(menu, selected ? &menu->art->t_level_tile_active
+                                 : &menu->art->t_level_tile,
+                  NULL, x, y, BIKE_TILE_W, BIKE_TILE_H, selected);
+
+        if (br_ui_has(sprite)) {
+            float box_w = BIKE_TILE_W - 20.0f;
+            float box_h = BIKE_TILE_H - 20.0f;
+            float w = br_texture_w(sprite) * (float)sprite->image->width;
+            float h = br_texture_h(sprite) * (float)sprite->image->height;
+            float scale = box_w / w;
+
+            if (box_h / h < scale)
+                scale = box_h / h;
+            w *= scale;
+            h *= scale;
+            br_draw_rect(x + (BIKE_TILE_W - w) * 0.5f, y + (BIKE_TILE_H - h) * 0.5f,
+                         x + (BIKE_TILE_W + w) * 0.5f, y + (BIKE_TILE_H + h) * 0.5f,
+                         sprite, NULL);
+        }
+    }
+
+    draw_back_button(menu, body, "Cross or tap  pick      Circle  back");
 }
 
 void br_menu_draw(const br_menu *menu, const br_level_pack *pack,
@@ -437,8 +596,9 @@ void br_menu_draw(const br_menu *menu, const br_level_pack *pack,
     br_ui_begin();
     draw_background(menu);
 
-    if (menu->screen == BR_MENU_WORLDS)
-        draw_worlds(menu, pack, save, display, body);
-    else
-        draw_levels(menu, pack, save, display, body);
+    switch (menu->screen) {
+    case BR_MENU_WORLDS: draw_worlds(menu, pack, save, display, body); break;
+    case BR_MENU_BIKES:  draw_bikes(menu, display, body);              break;
+    default:             draw_levels(menu, pack, save, display, body); break;
+    }
 }

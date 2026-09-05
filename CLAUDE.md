@@ -197,8 +197,9 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 | Lean back (wheelie) | L trigger, left stick left, or d-pad left |
 | Reset the level | Circle |
 | Next level, after finishing | Cross |
-| Back to the level list | Start |
-| Menus: move / choose / back | d-pad or stick, Cross, Circle |
+| Pause | Start |
+| Menus: move / choose / back | d-pad, stick or touch; Cross; Circle |
+| Bike list | Triangle, from either menu |
 | Quit | Start + Select, or Circle on the world list |
 
 Holding brake for a quarter second once the bike has stopped engages reverse,
@@ -222,6 +223,19 @@ and draw order can be looked at directly.
 
 Run both before building a VPK. They are much faster than a flash-and-look
 cycle and they catch the bugs a UDP log cannot explain.
+
+## Sound
+
+`GameAudio`'s engine is five recorded notes crossfaded by a state machine, not
+one pitch-shifted loop: idle, slow, a one-shot climb, fast, and a one-shot drop
+back. The climb and drop hand over at 95% played so the change lands on the
+sample's own beat. Landings sound only above a force threshold and only after
+air time. All of that is ported as-is in [src/game/audio.c](src/game/audio.c).
+
+The mixer ([src/platform/audio.c](src/platform/audio.c)) runs 48 kHz stereo on
+its own thread and resamples each voice from its own rate, so the game's 22 kHz
+mono files play untouched. WAV loading lives apart in `src/platform/wav.c` so
+the host tests load the real files and run the real state machine.
 
 ## Fonts and save data
 

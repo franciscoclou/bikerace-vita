@@ -75,7 +75,38 @@ void br_scene_free(br_scene *scene)
         br_mesh_free(&scene->track_mesh);
     br_image_free(&scene->atlas);
     br_image_free(&scene->bike_image);
+    br_image_free(&scene->wheel_image);
     memset(scene, 0, sizeof(*scene));
+}
+
+/* Most bikes take their wheel from the world atlas; Santa's is its own file. */
+static void bind_wheel(br_scene *scene)
+{
+    const br_image *a = &scene->atlas;
+
+    br_image_free(&scene->wheel_image);
+
+    switch (br_bike_def_for(scene->bike_type)->wheel) {
+    case BR_WHEEL_ULTRA:
+        scene->wheel = br_texture_region(a, UV_WHEEL_ULTRA);
+        break;
+    case BR_WHEEL_HALLOWEEN:
+        scene->wheel = br_texture_region(a, UV_WHEEL_HALLOWEEN);
+        break;
+    case BR_WHEEL_SANTA: {
+        char path[256];
+        snprintf(path, sizeof(path), "%s/textures/santa_wheel.png", br_asset_root());
+        if (br_image_load(&scene->wheel_image, path) == 0) {
+            scene->wheel = br_texture_region(&scene->wheel_image, 0.0f, 0.0f, 1.0f, 1.0f);
+            break;
+        }
+        scene->wheel = br_texture_region(a, UV_WHEEL);
+        break;
+    }
+    default:
+        scene->wheel = br_texture_region(a, UV_WHEEL);
+        break;
+    }
 }
 
 static void bind_atlas_regions(br_scene *scene)
@@ -89,10 +120,7 @@ static void bind_atlas_regions(br_scene *scene)
     scene->track           = br_texture_region(a, UV_TRACK);
     scene->pole            = br_texture_region(a, UV_POLE);
 
-    switch (scene->bike_type) {
-    case BR_BIKE_ULTRA: scene->wheel = br_texture_region(a, UV_WHEEL_ULTRA); break;
-    default:            scene->wheel = br_texture_region(a, UV_WHEEL);       break;
-    }
+    bind_wheel(scene);
 
     for (i = 0; i < 8; i++)
         scene->flag[i] = br_texture_region(a, s_flag_uv[i][0], s_flag_uv[i][1],

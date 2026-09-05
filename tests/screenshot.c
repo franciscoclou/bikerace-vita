@@ -117,6 +117,11 @@ int main(int argc, char **argv)
     app.menu.level = 2;
     shoot(&app, dir, "menu_levels_w15", 0);
 
+    br_menu_open_bikes(&app.menu);
+    app.menu.bike = BR_BIKE_ULTRA;
+    shoot(&app, dir, "menu_bikes", 0);
+    br_menu_close_bikes(&app.menu);
+
     race(&app, dir, "race_w01_l1_start", 0, 0, 0.0f);
     race(&app, dir, "race_w01_l1", 0, 0, 2.0f);
     race(&app, dir, "race_w16_l1", 15, 0, 3.0f);
