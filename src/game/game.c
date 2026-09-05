@@ -22,6 +22,10 @@
  * bike rotates far harder than it ever could on Android. */
 #define LEAN_LIMIT      0.5f
 
+/* Brake held this long with the bike this slow engages reverse. */
+#define REVERSE_HOLD    0.25f
+#define REVERSE_SPEED   0.5f
+
 int br_game_init(br_game *game)
 {
     memset(game, 0, sizeof(*game));
@@ -72,6 +76,8 @@ static void reset_run(br_game *game)
     game->crashed_at = 0.0f;
     game->stars      = 0;
     game->rear_grounded = game->front_grounded = 0;
+    game->brake_held = 0.0f;
+    game->reversing  = 0;
 }
 
 int br_game_load(br_game *game, int world_index, int level_index)
@@ -243,8 +249,21 @@ void br_game_update(br_game *game, const br_input *in, float dt)
     if (game->state == BR_STATE_RUNNING) {
         game->elapsed += dt;
 
+        if (in->brake) {
+            game->brake_held += dt;
+            if (!game->reversing && game->brake_held >= REVERSE_HOLD &&
+                v2_len(&game->bike.chassis.com_vel) < REVERSE_SPEED) {
+                game->reversing = 1;
+                LOGI("game: reverse engaged at t=%.2f", game->elapsed);
+            }
+        } else {
+            game->brake_held = 0.0f;
+            game->reversing  = 0;
+        }
+
         if (in->accelerate)   want = BR_BIKE_ACCELERATING;
-        else if (in->brake)   want = BR_BIKE_BRAKING;
+        else if (in->brake)   want = game->reversing ? BR_BIKE_REVERSING
+                                                     : BR_BIKE_BRAKING;
         else                  want = BR_BIKE_IDLE;
 
         if (!br_bike_crashed(&game->bike))
@@ -253,7 +272,9 @@ void br_game_update(br_game *game, const br_input *in, float dt)
             game->state = BR_STATE_DEAD;
 
         {
-            float lean = in->lean * LEAN_LIMIT;
+            /* Positive torque rotates the bike backwards, so leaning forward
+             * -- stick right -- has to feed in a negative value. */
+            float lean = -in->lean * LEAN_LIMIT;
             if (lean >  LEAN_LIMIT) lean =  LEAN_LIMIT;
             if (lean < -LEAN_LIMIT) lean = -LEAN_LIMIT;
             step_physics(game, lean, dt);

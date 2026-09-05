@@ -33,6 +33,11 @@ typedef struct {
     int           rear_grounded;  /* Java field D */
     int           front_grounded; /* Java field E */
 
+    /* Holding brake past a standstill backs the bike up. Latched until the
+     * button is released, so it cannot chatter against the speed threshold. */
+    float         brake_held;
+    int           reversing;
+
     int          *nearby;         /* scratch for broad-phase results */
     int           nearby_max;
 } br_game;

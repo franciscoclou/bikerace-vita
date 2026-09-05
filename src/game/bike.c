@@ -17,17 +17,23 @@
  * single player are listed; the rest are shop and World Cup variants. */
 static const br_bike_def s_defs[BR_BIKE_TYPE_COUNT] = {
     { "regular",   "m00.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f } },
+      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f  },
+      { 0.0f, 0.0f, 0.7890625f,  0.6640625f  } },
     { "kids",      "m05.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 1, 0, -3.0f, 0.50666666f, {  0.02f,  -0.01f } },
+      0.17f,  -0.2f,   1, 1, 0, -3.0f, 0.50666666f, {  0.02f,  -0.01f  },
+      { 0.0f, 0.0f, 0.7890625f,  0.703125f   } },
     { "super",     "m09.png", 132.0f,  32.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 1, 0, -4.0f, 0.61333334f, { -0.04f,   0.015f } },
+      0.17f,  -0.2f,   1, 1, 0, -4.0f, 0.61333334f, { -0.04f,   0.015f },
+      { 0.0f, 0.0f, 0.8984375f,  0.6640625f  } },
     { "acrobatic", "m07.png",  44.0f,  16.0f, 12.0f, 1.5f, 2000.0f,
-      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.765625f,   { -0.0235f, 0.0f  } },
+      0.17f,  -0.2f,   0, 0, 0, -4.0f, 0.765625f,   { -0.0235f, 0.0f   },
+      { 0.0f, 0.0f, 0.765625f,   0.63671875f } },
     { "ultra",     "m06.png", 154.0f,  40.0f, 24.0f, 2.0f, 2000.0f,
-      0.25f, -0.285f,  1, 0, 0, -6.0f, 0.71466666f, {  0.01f,  -0.033f } },
+      0.25f, -0.285f,  1, 0, 0, -6.0f, 0.71466666f, {  0.01f,  -0.033f },
+      { 0.0f, 0.0f, 1.0f,        0.67578125f } },
     { "ghost",     "m13.png",  44.0f,  16.0f, 12.0f, 1.0f, 2000.0f,
-      0.17f,  -0.2f,   1, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f } },
+      0.17f,  -0.2f,   1, 0, 0, -4.0f, 0.53866667f, {  0.0f,   -0.01f  },
+      { 0.0f, 0.0f, 0.78125f,    0.6640625f  } },
 };
 
 const br_bike_def *br_bike_def_for(br_bike_type type)
@@ -88,6 +94,9 @@ void br_bike_set_state(br_bike *bike, br_bike_state state)
             bike->rear.ang_vel_deg  = 0.0f;
             bike->front.ang_vel_deg = 0.0f;
         }
+        break;
+    case BR_BIKE_REVERSING:
+        bike->rear.ang_vel_deg = bike->def->wheel_spin;
         break;
     case BR_BIKE_CRASHED:
         /* The rider comes off: the head stops being part of the assembly. */
@@ -195,12 +204,15 @@ static float resolve(br_bike *bike, br_body *body, const br_board *board,
 
 float br_bike_collide_rear(br_bike *bike, const br_board *board, float dt)
 {
+    int reversing = bike->state == BR_BIKE_REVERSING ||
+                    (bike->state == BR_BIKE_BRAKING && bike->def->reverse_on_brake);
+
     if (!body_near_board(&bike->rear, board, WHEEL_BOX))
         return 0.0f;
     return resolve(bike, &bike->rear, board, dt,
                    bike->state == BR_BIKE_ACCELERATING,
                    bike->state == BR_BIKE_BRAKING && !bike->def->reverse_on_brake,
-                   bike->state == BR_BIKE_BRAKING && bike->def->reverse_on_brake);
+                   reversing);
 }
 
 float br_bike_collide_front(br_bike *bike, const br_board *board, float dt)

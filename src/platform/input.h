@@ -4,20 +4,21 @@
 #include <stdint.h>
 
 /* The Android original drove the bike with two on-screen halves (left half =
- * brake/lean back, right half = accelerate/lean forward) plus an accelerometer
- * tilt mode. On the Vita we map:
+ * brake, right half = accelerate) plus an accelerometer tilt mode. On the Vita:
  *
- *   accelerate  -> R trigger / Cross / right half of the front touchscreen
- *   brake       -> L trigger / Square / left half of the front touchscreen
- *   lean        -> left stick X (also the accelerometer via sceMotion)
- *   pause       -> Start
- *   back        -> Circle
+ *   accelerate    -> L trigger / Cross / right half of the front touchscreen
+ *   brake, then
+ *   reverse       -> R trigger / Square / left half of the front touchscreen
+ *   lean          -> left stick X, or the d-pad
+ *   reset level   -> Circle
+ *   quit          -> Start + Select
  */
 
 typedef struct {
     int   accelerate;   /* held this frame */
     int   brake;
-    float lean;         /* -1 .. 1, negative = lean back */
+    /* -1 .. 1 along the stick: +1 is right, which leans the bike forward. */
+    float lean;
 
     int   pause_pressed;   /* edge-triggered */
     int   back_pressed;

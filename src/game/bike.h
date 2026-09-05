@@ -25,6 +25,7 @@ typedef enum {
     BR_BIKE_IDLE = 0,
     BR_BIKE_ACCELERATING,
     BR_BIKE_BRAKING,
+    BR_BIKE_REVERSING,
     BR_BIKE_CRASHED
 } br_bike_state;
 
@@ -43,6 +44,10 @@ typedef struct {
     float gravity_y;         /* per type, from Game's table */
     float sprite_width;      /* world units, from GameSceneDirector */
     vec2  sprite_offset;
+    /* The sprite sits in the top-left of its 256x256 file; the rest is
+     * padding. TextureCoordinates carries the region that bounds it, and
+     * drawing the whole file instead floats the bike up and left. */
+    float sprite_uv[4];
 } br_bike_def;
 
 typedef struct {

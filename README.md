@@ -19,6 +19,12 @@ reusing the original art, audio and level data.
 The build ends by printing the `curl` command that copies it to the Vita. It
 never transfers anything itself.
 
+## Controls
+
+Accelerate with **L** or **Cross**, brake with **R** or **Square** (keep it held
+once stopped to reverse), lean with the **left stick** or **d-pad**, reset with
+**Circle**, quit with **Start + Select**.
+
 ## While developing
 
 ```sh

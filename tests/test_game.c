@@ -298,7 +298,7 @@ typedef struct {
  * throttle with no lean flips the bike on the first jump, on Android too. */
 static float autopilot_lean(const br_bike *bike)
 {
-    float want = -br_bike_angle_deg(bike) / 45.0f;
+    float want = br_bike_angle_deg(bike) / 45.0f;
     if (want >  1.0f) want =  1.0f;
     if (want < -1.0f) want = -1.0f;
     return want;
@@ -428,6 +428,105 @@ static void test_track_mesh(br_game *game)
     br_mesh_free(&mesh);
 }
 
+static void test_reverse(br_game *game)
+{
+    br_input in;
+    float start_x, after_brake_x;
+    int i;
+
+    begin("holding brake past a standstill reverses");
+
+    br_game_load(game, 0, 0);
+    memset(&in, 0, sizeof(in));
+    game->state = BR_STATE_RUNNING;
+
+    /* Get moving. */
+    in.accelerate = 1;
+    for (i = 0; i < 90; i++)
+        br_game_update(game, &in, 1.0f / 60.0f);
+    start_x = game->bike.head.pos.x;
+    CHECK(start_x > 1.0f, "did not get moving: x=%.2f", start_x);
+
+    /* Now hold the brake and keep holding it. */
+    in.accelerate = 0;
+    in.brake = 1;
+    for (i = 0; i < 120; i++) {
+        br_game_update(game, &in, 1.0f / 60.0f);
+        if (game->reversing)
+            break;
+    }
+    CHECK(game->reversing, "brake never engaged reverse in 2s");
+    after_brake_x = game->bike.head.pos.x;
+
+    for (i = 0; i < 90; i++)
+        br_game_update(game, &in, 1.0f / 60.0f);
+    CHECK(game->bike.head.pos.x < after_brake_x - 0.3f,
+          "reversing moved from x=%.2f to x=%.2f, expected to go backwards",
+          after_brake_x, game->bike.head.pos.x);
+    printf("     reversed %.2f units in 1.5s\n", after_brake_x - game->bike.head.pos.x);
+
+    /* Releasing the brake must drop out of reverse. */
+    in.brake = 0;
+    br_game_update(game, &in, 1.0f / 60.0f);
+    CHECK(!game->reversing, "still reversing after the brake was released");
+}
+
+static void test_lean_direction(br_game *game)
+{
+    br_input in;
+    float leaned_forward, leaned_back;
+    int i;
+
+    begin("stick right leans the bike forward");
+
+    memset(&in, 0, sizeof(in));
+
+    /* Lift the bike clear of the track first: on the ground the nose cannot
+     * pitch down, and left over a longer run wraps past 180 degrees. */
+    for (i = 0; i < 2; i++) {
+        float *out = i == 0 ? &leaned_forward : &leaned_back;
+        int f;
+
+        br_game_load(game, 0, 0);
+        game->bike.head.pos.y  += 3.0f;
+        game->bike.front.pos.y += 3.0f;
+        game->bike.rear.pos.y  += 3.0f;
+        br_composed_update(&game->bike.chassis);
+        game->state = BR_STATE_RUNNING;
+
+        in.lean = i == 0 ? 1.0f : -1.0f;   /* stick right, then stick left */
+        for (f = 0; f < 20; f++)
+            br_game_update(game, &in, 1.0f / 60.0f);
+        *out = br_bike_angle_deg(&game->bike);
+    }
+
+    CHECK(leaned_forward < -1.0f, "stick right gave %.1f deg, want the nose down "
+          "(negative)", leaned_forward);
+    CHECK(leaned_back > 1.0f, "stick left gave %.1f deg, want the nose up "
+          "(positive)", leaned_back);
+    printf("     over 1/3 s airborne: stick right %.1f deg, stick left %.1f deg\n",
+           leaned_forward, leaned_back);
+}
+
+static void test_bike_sprite_region(void)
+{
+    int i;
+
+    begin("bike sprite regions");
+
+    for (i = 0; i < BR_BIKE_TYPE_COUNT; i++) {
+        const br_bike_def *def = br_bike_def_for((br_bike_type)i);
+        float w = def->sprite_uv[2] - def->sprite_uv[0];
+        float h = def->sprite_uv[3] - def->sprite_uv[1];
+
+        CHECK(w > 0.1f && w <= 1.0f, "%s sprite region width %.4f", def->name, w);
+        CHECK(h > 0.1f && h <= 1.0f, "%s sprite region height %.4f", def->name, h);
+        /* Drawing the whole file instead of the region floats the bike up and
+         * to the left, so guard against the region silently becoming 0..1. */
+        CHECK(w < 1.0f || h < 1.0f, "%s sprite region covers the whole file", def->name);
+    }
+}
+
 int main(int argc, char **argv)
 {
     br_game game;
@@ -450,6 +549,9 @@ int main(int argc, char **argv)
     test_camera_transform(&game);
     test_camera_follow(&game);
     test_track_mesh(&game);
+    test_bike_sprite_region();
+    test_lean_direction(&game);
+    test_reverse(&game);
     test_bike_drives(&game);
     test_finishes_first_level(&game);
     test_no_level_explodes(&game);

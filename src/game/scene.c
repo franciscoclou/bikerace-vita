@@ -133,7 +133,11 @@ int br_scene_use(br_scene *scene, int atlas_index, br_bike_type bike)
         if (br_image_load(&scene->bike_image, path) < 0)
             return -1;
         scene->bike_type = bike;
-        scene->bike_sprite = br_texture_region(&scene->bike_image, 0.0f, 0.0f, 1.0f, 1.0f);
+        {
+            const float *uv = br_bike_def_for(bike)->sprite_uv;
+            scene->bike_sprite = br_texture_region(&scene->bike_image,
+                                                   uv[0], uv[1], uv[2], uv[3]);
+        }
     }
 
     bind_atlas_regions(scene);

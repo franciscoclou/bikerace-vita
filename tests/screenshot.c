@@ -61,7 +61,7 @@ static void run_for(br_game *game, float seconds)
     game->state = BR_STATE_RUNNING;
 
     for (i = 0; i < (int)(seconds * 60.0f); i++) {
-        float want = -br_bike_angle_deg(&game->bike) / 45.0f;
+        float want = br_bike_angle_deg(&game->bike) / 45.0f;
         in.lean = want > 1.0f ? 1.0f : (want < -1.0f ? -1.0f : want);
         br_game_update(game, &in, 1.0f / 60.0f);
     }

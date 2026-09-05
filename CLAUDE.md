@@ -187,6 +187,27 @@ check the port against the original.
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 [docs/PORTING.md](docs/PORTING.md) tracks what is done and what is next.
 
+## Controls
+
+| | |
+|---|---|
+| Accelerate | L trigger, Cross, or the right half of the touchscreen |
+| Brake / reverse | R trigger, Square, or the left half of the touchscreen |
+| Lean forward (nose down) | left stick right, or d-pad right |
+| Lean back (wheelie) | left stick left, or d-pad left |
+| Reset the level | Circle |
+| Next level, after finishing | Cross |
+| Quit | Start + Select |
+
+Holding brake for a quarter second once the bike has stopped engages reverse,
+and it stays engaged until the button is released. The original had no reverse
+except on the Santa bike, whose brake *was* reverse; that bike still behaves
+that way.
+
+Lean is clamped to ±0.5 before it reaches the bike, which is the range the
+Android accelerometer produced. Positive torque rotates the bike backwards, so
+`br_input.lean` (+1 = stick right) is negated on its way in.
+
 ## Verifying before you build
 
 `make -C tests run` compiles the game's own sources natively with GL and the
