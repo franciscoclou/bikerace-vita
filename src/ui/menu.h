@@ -26,9 +26,9 @@ typedef enum {
 
 typedef struct {
     br_image   background, world_tile, level_tile, level_tile_active;
-    br_image   star_on, star_off, logo;
+    br_image   star_on, star_off, logo, back;
     br_texture t_background, t_world_tile, t_level_tile, t_level_tile_active;
-    br_texture t_star_on, t_star_off, t_logo;
+    br_texture t_star_on, t_star_off, t_logo, t_back;
     int        have_art;
 } br_menu_art;
 
@@ -41,7 +41,14 @@ typedef struct {
     /* Directional auto-repeat. */
     int   held_x, held_y;
     float repeat_delay;
+
+    /* What the current touch went down on, so a release only counts when it
+     * comes up on the same thing. -1 for nothing, -2 for the back button. */
+    int   touch_target;
 } br_menu;
+
+#define BR_TOUCH_NONE (-1)
+#define BR_TOUCH_BACK (-2)
 
 int  br_menu_init(br_menu *menu);
 void br_menu_free(br_menu *menu);
@@ -55,5 +62,11 @@ void br_menu_draw(const br_menu *menu, const br_level_pack *pack,
                   const br_save *save, const br_font *display, const br_font *body);
 
 const char *br_world_name(int world_index);
+
+/* Where a tile is drawn on the screen that is currently open, so a caller can
+ * point at it. Returns 0 when the index is off the end. */
+int  br_menu_tile_rect(const br_menu *menu, const br_level_pack *pack, int index,
+                       float *x, float *y, float *w, float *h);
+void br_menu_back_button_rect(float *x, float *y, float *size);
 
 #endif /* BR_MENU_H */

@@ -681,6 +681,107 @@ static void test_menu_navigation(br_game *game)
     CHECK(menu.screen == BR_MENU_WORLDS, "Circle did not return to the world list");
 }
 
+/* Puts a touch at the centre of a tile. */
+static void touch_tile(br_input *in, const br_menu *menu, const br_level_pack *pack,
+                       int index)
+{
+    float x, y, w, h;
+
+    if (!br_menu_tile_rect(menu, pack, index, &x, &y, &w, &h)) {
+        printf("  FAIL %s: no rect for tile %d\n", g_case, index);
+        g_failures++;
+        return;
+    }
+    in->touch_ui_x = x + w * 0.5f;
+    in->touch_ui_y = y + h * 0.5f;
+}
+
+static void test_menu_touch(br_game *game)
+{
+    br_menu menu;
+    br_input in;
+    float bx, by, bsize;
+
+    begin("menu touch");
+
+    memset(&menu, 0, sizeof(menu));
+    memset(&in, 0, sizeof(in));
+    br_menu_open_worlds(&menu);
+
+    /* Touching a tile selects it; lifting off the same tile opens it. */
+    touch_tile(&in, &menu, &game->pack, 7);
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.world == 7, "touching world 8 selected %d", menu.world + 1);
+    CHECK(menu.screen == BR_MENU_WORLDS, "touching down already opened the levels");
+
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_LEVELS, "lifting off world 8 did not open it");
+    CHECK(menu.world == 7, "opening changed the world to %d", menu.world + 1);
+
+    /* Sliding off before lifting must not commit. */
+    br_menu_open_worlds(&menu);
+    memset(&in, 0, sizeof(in));
+    touch_tile(&in, &menu, &game->pack, 2);
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    touch_tile(&in, &menu, &game->pack, 9);       /* released somewhere else */
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_WORLDS,
+          "releasing on a different tile still opened a world");
+
+    /* A tap on empty space does nothing. */
+    br_menu_open_worlds(&menu);
+    memset(&in, 0, sizeof(in));
+    in.touch_ui_x = 4.0f;
+    in.touch_ui_y = 4.0f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_WORLDS, "a tap on empty space opened something");
+
+    /* Tapping a level tile plays it. */
+    br_menu_open_levels(&menu, 0);
+    memset(&in, 0, sizeof(in));
+    touch_tile(&in, &menu, &game->pack, 4);
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.level == 4, "touching level 5 selected %d", menu.level + 1);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack) == BR_MENU_PLAY,
+          "lifting off a level tile did not start it");
+
+    /* The back button returns to the world list. */
+    br_menu_open_levels(&menu, 3);
+    memset(&in, 0, sizeof(in));
+    br_menu_back_button_rect(&bx, &by, &bsize);
+    in.touch_ui_x = bx + bsize * 0.5f;
+    in.touch_ui_y = by + bsize * 0.5f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    CHECK(menu.screen == BR_MENU_WORLDS, "the back button did not go back");
+}
+
 static void test_world_names(br_game *game)
 {
     int i;
@@ -726,6 +827,7 @@ int main(int argc, char **argv)
     test_fonts();
     test_save(&game);
     test_menu_navigation(&game);
+    test_menu_touch(&game);
     test_world_names(&game);
     test_bike_sprite_region();
     test_lean_direction(&game);

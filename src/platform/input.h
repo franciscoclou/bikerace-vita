@@ -12,7 +12,10 @@
  *   lean forward  -> R trigger, left stick right, or d-pad right
  *   lean back     -> L trigger, left stick left, or d-pad left
  *   reset level   -> Circle
+ *   pause         -> Start
  *   quit          -> Start + Select
+ *
+ * Menus take the d-pad and the touchscreen both.
  */
 
 typedef struct {
@@ -32,6 +35,13 @@ typedef struct {
     int   touch_count;
     float touch_x[2];   /* 0..1 across the screen */
     float touch_y[2];
+
+    /* The first touch, in the 960x544 space menus lay out in. Position is
+     * held over the frame the touch ends, so a release can be hit-tested. */
+    int   touch_active;
+    int   touch_began;
+    int   touch_ended;
+    float touch_ui_x, touch_ui_y;
 
     uint32_t buttons;      /* raw SceCtrlData.buttons */
     uint32_t buttons_prev;

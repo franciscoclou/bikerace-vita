@@ -8,6 +8,8 @@
 #define TOUCH_MAX_X 1919.0f  /* front panel reports 1920x1088 */
 #define TOUCH_MAX_Y 1087.0f
 #define STICK_DEADZONE 24
+#define UI_W 960.0f
+#define UI_H 544.0f
 
 void br_input_init(void)
 {
@@ -43,6 +45,18 @@ void br_input_poll(br_input *in)
     for (i = 0; i < in->touch_count; i++) {
         in->touch_x[i] = (float)touch.report[i].x / TOUCH_MAX_X;
         in->touch_y[i] = (float)touch.report[i].y / TOUCH_MAX_Y;
+    }
+
+    {
+        int was_active = in->touch_active;
+
+        in->touch_active = in->touch_count > 0;
+        in->touch_began  = in->touch_active && !was_active;
+        in->touch_ended  = !in->touch_active && was_active;
+        if (in->touch_active) {
+            in->touch_ui_x = in->touch_x[0] * UI_W;
+            in->touch_ui_y = in->touch_y[0] * UI_H;
+        }
     }
 
     in->accelerate = (pad.buttons & SCE_CTRL_CROSS) != 0;
