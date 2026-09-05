@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "../src/engine/render.h"
+#include "../src/game/audio.h"
 #include "../src/game/save.h"
 #include "../src/ui/font.h"
 #include "../src/ui/menu.h"
@@ -782,6 +783,122 @@ static void test_menu_touch(br_game *game)
     CHECK(menu.screen == BR_MENU_WORLDS, "the back button did not go back");
 }
 
+void br_test_audio_reset(void);
+const br_sound *br_test_audio_looping(void);
+int br_test_audio_active(void);
+
+/* Feeds the engine state machine for `seconds`, holding the given conditions. */
+static void run_engine(br_game_audio *audio, int accelerating, float speed,
+                       int grounded, float seconds)
+{
+    int i;
+    for (i = 0; i < (int)(seconds * 60.0f); i++) {
+        br_game_audio_tick(audio, 1.0f / 60.0f);
+        br_game_audio_engine(audio, accelerating, speed, grounded, 1.0f / 60.0f);
+    }
+}
+
+static void test_engine_notes(void)
+{
+    br_game_audio audio;
+    float climb, drop;
+
+    begin("engine note ladder");
+
+    br_test_audio_reset();
+    br_game_audio_init(&audio);
+    CHECK(audio.ready, "no sound effects loaded from assets_out/sfx");
+    if (!audio.ready) {
+        br_game_audio_free(&audio);
+        return;
+    }
+
+    climb = br_sound_seconds(&audio.sfx[BR_SFX_ENGINE_MEDIUM_HI]);
+    drop  = br_sound_seconds(&audio.sfx[BR_SFX_ENGINE_HI_MEDIUM]);
+    CHECK(climb > 0.05f && drop > 0.05f,
+          "climb %.3fs and drop %.3fs samples look wrong", climb, drop);
+
+    /* Coasting idles on the low note, looping. */
+    run_engine(&audio, 0, 0.0f, 1, 0.2f);
+    CHECK(audio.engine == BR_ENGINE_STOPPED, "coasting is state %d, want stopped",
+          audio.engine);
+    CHECK(br_test_audio_looping() == &audio.sfx[BR_SFX_ENGINE_LOW],
+          "coasting is not looping the idle note");
+
+    /* Opening the throttle at low speed goes to the slow note first. */
+    run_engine(&audio, 1, 1.0f, 1, 0.05f);
+    CHECK(audio.engine == BR_ENGINE_SLOW, "throttle from idle is state %d, want slow",
+          audio.engine);
+
+    /* Past 4.5 it climbs, and hands over to the fast note when the climb
+     * sample is 95% played. */
+    run_engine(&audio, 1, 6.0f, 1, 0.05f);
+    CHECK(audio.engine == BR_ENGINE_ACCELERATING,
+          "speeding up is state %d, want accelerating", audio.engine);
+    run_engine(&audio, 1, 6.0f, 1, climb * 0.5f);
+    CHECK(audio.engine == BR_ENGINE_ACCELERATING,
+          "handed over to fast halfway through the climb sample");
+    run_engine(&audio, 1, 6.0f, 1, climb);
+    CHECK(audio.engine == BR_ENGINE_FAST, "after the climb it is state %d, want fast",
+          audio.engine);
+    CHECK(br_test_audio_looping() == &audio.sfx[BR_SFX_ENGINE_HI],
+          "fast is not looping the high note");
+
+    /* Slowing down on the ground drops back, then returns to slow. */
+    run_engine(&audio, 1, 1.0f, 1, 0.05f);
+    CHECK(audio.engine == BR_ENGINE_DECELERATING,
+          "slowing down is state %d, want decelerating", audio.engine);
+    run_engine(&audio, 1, 1.0f, 1, drop);
+    CHECK(audio.engine == BR_ENGINE_SLOW, "after the drop it is state %d, want slow",
+          audio.engine);
+
+    /* Leaving the ground counts as opening the throttle. */
+    run_engine(&audio, 1, 1.0f, 0, 0.05f);
+    CHECK(audio.engine == BR_ENGINE_ACCELERATING,
+          "going airborne is state %d, want accelerating", audio.engine);
+
+    br_game_audio_free(&audio);
+}
+
+static void test_impact_sound(void)
+{
+    br_game_audio audio;
+    int before;
+
+    begin("landing sound");
+
+    br_test_audio_reset();
+    br_game_audio_init(&audio);
+    if (!audio.ready) {
+        br_game_audio_free(&audio);
+        return;
+    }
+
+    /* A scrape along the ground is not a landing. */
+    before = br_test_audio_active();
+    br_game_audio_impact(&audio, 1000.0f, 1.0f);
+    CHECK(br_test_audio_active() == before, "a grounded scrape played a landing");
+
+    /* Nor is a soft touch after a jump. */
+    br_game_audio_impact(&audio, 50.0f, 0.0f);
+    CHECK(br_test_audio_active() == before, "a soft landing played a landing");
+
+    /* A hard one after air time does sound, once. */
+    br_game_audio_impact(&audio, 900.0f, 0.0f);
+    CHECK(br_test_audio_active() == before + 1, "a hard landing did not sound");
+    br_game_audio_impact(&audio, 900.0f, 0.0f);
+    CHECK(br_test_audio_active() == before + 1,
+          "a second landing sounded before the rate limit expired");
+
+    /* And again once the sample has had time to finish. */
+    br_game_audio_tick(&audio, br_sound_seconds(&audio.sfx[BR_SFX_FALL_IMPACT]) + 0.1f);
+    br_audio_stop_all();
+    br_game_audio_impact(&audio, 900.0f, 0.0f);
+    CHECK(br_test_audio_active() == 1, "the rate limit never released");
+
+    br_game_audio_free(&audio);
+}
+
 static void test_world_names(br_game *game)
 {
     int i;
@@ -829,6 +946,8 @@ int main(int argc, char **argv)
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);
+    test_engine_notes();
+    test_impact_sound();
     test_bike_sprite_region();
     test_lean_direction(&game);
     test_reverse(&game);

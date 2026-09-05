@@ -46,6 +46,7 @@ int br_app_init(br_app *app)
     app->menu.level = app->save.last_level;
     br_menu_open_worlds(&app->menu);
     app->screen = BR_APP_MENU;
+    br_game_audio_music(&app->game.audio, 1);
 
     LOGI("app: ready -- %d worlds, %d stars saved",
          app->game.pack.world_count, br_save_total_stars(&app->save));
@@ -65,6 +66,8 @@ void br_app_free(br_app *app)
 static void back_to_menu(br_app *app)
 {
     br_save_flush(&app->save);
+    br_game_audio_silence(&app->game.audio);
+    br_game_audio_music(&app->game.audio, 1);
     br_menu_open_levels(&app->menu, app->menu.world);
     app->screen = BR_APP_MENU;
 }
@@ -76,6 +79,7 @@ static void start_race(br_app *app)
         return;
     }
     br_save_remember_place(&app->save, app->menu.world, app->menu.level);
+    br_game_audio_music(&app->game.audio, 0);
     app->last_race_state = app->game.state;
     app->screen = BR_APP_RACING;
 }
@@ -99,6 +103,7 @@ static void update_race(br_app *app, const br_input *in, float dt)
     /* Start pauses; Circle resets, which br_game_update handles; Cross moves
      * on once the run is over. */
     if (in->pause_pressed) {
+        br_game_audio_silence(&app->game.audio);
         br_pause_open(&app->pause);
         app->screen = BR_APP_PAUSED;
         return;

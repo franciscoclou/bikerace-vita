@@ -41,14 +41,14 @@ for f in apk/res/raw/*.wav; do
 done
 echo "   $(ls "$OUT"/sfx | wc -l) effects"
 
-# Music stays compressed -- 208 s of stereo PCM would be ~40 MB per track.
-# Ogg Vorbis decodes cheaply on the Vita via stb_vorbis.
+# The mixer plays 16-bit mono PCM, so the menu track is converted to match the
+# effects rather than carrying an Ogg decoder for one file. It is the largest
+# asset by far and the game runs fine without it, so only the track the menu
+# actually uses is produced.
 echo ">> music"
-for f in apk/res/raw/*.mp3; do
-  ffmpeg -v error -y -i "$f" -c:a libvorbis -q:a 4 \
-         "$OUT/music/$(basename "${f%.mp3}").ogg"
-done
-echo "   $(ls "$OUT"/music | wc -l) tracks"
+ffmpeg -v error -y -i apk/res/raw/musica_menu.mp3 -ac 1 -ar 22050 -c:a pcm_s16le \
+       "$OUT/music/musica_menu.wav"
+echo "   $(du -h "$OUT"/music/musica_menu.wav | cut -f1) menu track"
 
 # --- menu art ---------------------------------------------------------------
 # Only the pieces src/ui/menu.c draws, so the transfer stays small.

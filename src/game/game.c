@@ -52,11 +52,13 @@ int br_game_init(br_game *game)
     }
     LOGI("game: broad-phase scratch sized for %d boards", game->nearby_max);
     game->bike_type = BR_BIKE_REGULAR;
+    br_game_audio_init(&game->audio);
     return 0;
 }
 
 void br_game_free(br_game *game)
 {
+    br_game_audio_free(&game->audio);
     free(game->nearby);
     br_scene_free(&game->scene);
     br_levels_free(&game->pack);
@@ -76,8 +78,10 @@ static void reset_run(br_game *game)
     game->crashed_at = 0.0f;
     game->stars      = 0;
     game->rear_grounded = game->front_grounded = 0;
+    game->ground_factor = 1.0f;
     game->brake_held = 0.0f;
     game->reversing  = 0;
+    br_game_audio_silence(&game->audio);
 }
 
 int br_game_load(br_game *game, int world_index, int level_index)
@@ -100,6 +104,10 @@ int br_game_load(br_game *game, int world_index, int level_index)
     game->world_index = world_index;
     game->level_index = level_index;
     reset_run(game);
+
+    /* World 16 greets you with one of its four noises, as it always did. */
+    if (world->id == 16)
+        br_game_audio_spooky(&game->audio);
 
     LOGI("game: loaded %d-%d -- %d boards, bounds x[%.2f..%.2f] y[%.2f..%.2f], "
          "start (%.2f,%.2f) finish (%.2f,%.2f), stars %.1f/%.1f/%.1f",
@@ -154,6 +162,8 @@ static void step_physics(br_game *game, float lean, float frame_dt)
     vec2 gravity;
     br_aabb bounds;
     int substeps, count, i, n;
+    /* Only the first contact of the frame is sounded, as in the original. */
+    int sounded = 0;
 
     substeps = (int)(frame_dt / PHYSICS_STEP) + 1;
     {
@@ -175,12 +185,31 @@ static void step_physics(br_game *game, float lean, float frame_dt)
 
         for (i = 0; i < count; i++) {
             const br_board *board = &game->level->boards.boards[game->nearby[i]];
+            float force;
 
-            if (br_bike_collide_rear(bike, board, frame_dt) > 0.0f)
+            force = br_bike_collide_rear(bike, board, frame_dt);
+            if (force > 0.0f) {
                 game->rear_grounded = 1;
-            if (br_bike_collide_front(bike, board, frame_dt) > 0.0f)
+                if (!sounded) {
+                    br_game_audio_impact(&game->audio, force, game->ground_factor);
+                    sounded = 1;
+                }
+            }
+
+            force = br_bike_collide_front(bike, board, frame_dt);
+            if (force > 0.0f) {
                 game->front_grounded = 1;
-            br_bike_collide_head(bike, board, frame_dt);
+                if (!sounded) {
+                    br_game_audio_impact(&game->audio, force, game->ground_factor);
+                    sounded = 1;
+                }
+            }
+
+            force = br_bike_collide_head(bike, board, frame_dt);
+            if (force > 0.0f && !sounded) {
+                br_game_audio_impact(&game->audio, force, game->ground_factor);
+                sounded = 1;
+            }
         }
 
         br_bike_step(bike, frame_dt);
@@ -194,10 +223,15 @@ static void step_physics(br_game *game, float lean, float frame_dt)
             LOGI("game: crashed at t=%.2f, head (%.2f,%.2f)",
                  game->elapsed, bike->head.pos.x, bike->head.pos.y);
             br_bike_set_state(bike, BR_BIKE_CRASHED);
+            br_game_audio_crash(&game->audio);
             game->crashed_at = game->elapsed;
             break;
         }
     }
+
+    game->ground_factor +=
+        frame_dt * (((game->front_grounded || game->rear_grounded) ? 1.0f : 0.0f) -
+                    game->ground_factor) * 3.0f;
 }
 
 static void update_camera(br_game *game, float dt)
@@ -280,15 +314,24 @@ void br_game_update(br_game *game, const br_input *in, float dt)
             step_physics(game, lean, dt);
         }
 
+        br_game_audio_tick(&game->audio, dt);
+        br_game_audio_engine(&game->audio,
+                             game->bike.state == BR_BIKE_ACCELERATING,
+                             v2_len(&game->bike.rear.vel),
+                             game->rear_grounded, dt);
+
         if (reached_finish(game)) {
             game->stars = br_level_stars(game->level, game->elapsed);
             game->state = BR_STATE_FINISHED;
+            br_game_audio_silence(&game->audio);
+            br_game_audio_win(&game->audio);
             LOGI("game: finished %d-%d in %.2fs -- %d stars",
                  game->world_index + 1, game->level_index + 1,
                  game->elapsed, game->stars);
         } else if (out_of_bounds(game)) {
             LOGI("game: out of bounds at (%.2f,%.2f)",
                  game->bike.head.pos.x, game->bike.head.pos.y);
+            br_game_audio_silence(&game->audio);
             game->state = BR_STATE_DEAD;
         }
     }

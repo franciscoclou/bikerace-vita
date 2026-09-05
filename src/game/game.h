@@ -2,6 +2,7 @@
 #define BR_GAME_H
 
 #include "../platform/input.h"
+#include "audio.h"
 #include "bike.h"
 #include "camera.h"
 #include "level.h"
@@ -30,8 +31,13 @@ typedef struct {
     float         crashed_at;
     int           stars;
 
+    br_game_audio audio;
+
     int           rear_grounded;  /* Java field D */
     int           front_grounded; /* Java field E */
+    /* Lagged "is on the ground", 0..1. A landing only sounds when this has had
+     * time to fall, which is how the original told a landing from a scrape. */
+    float         ground_factor;
 
     /* Holding brake past a standstill backs the bike up. Latched until the
      * button is released, so it cannot chatter against the speed threshold. */
