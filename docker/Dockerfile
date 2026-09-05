@@ -13,6 +13,11 @@ RUN vdpm vitaGL     && \
     vdpm vita2d     || true
 
 # Run as the invoking user so build artifacts are not root-owned.
-RUN apk add --no-cache bash python3 || true
+# Host-side helpers. The crash-dump symboliser runs in here too, because it
+# needs arm-vita-eabi-addr2line and arm-vita-eabi-objdump.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        bash python3 python3-pyelftools imagemagick && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
