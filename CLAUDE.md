@@ -196,11 +196,17 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 | Lean forward (nose down) | R trigger, left stick right, or d-pad right |
 | Lean back (wheelie) | L trigger, left stick left, or d-pad left |
 | Reset the level | Circle |
-| Next level, after finishing | Cross |
 | Pause | Start |
-| Menus: move / choose / back | d-pad, stick or touch; Cross; Circle |
-| Bike list | Triangle, from either menu |
-| Quit | Start + Select, or Circle on the world list |
+| After a run: next / repeat / level list | Cross / Circle / Start |
+| Menus: move, choose, back | d-pad, stick or touch; Cross; Circle |
+| Bike list | Triangle, or the cell after the last world |
+| Quit | Exit, on the start screen |
+
+Nothing else closes the game: Start+Select does not, and Circle backs out to
+the start screen rather than dropping you out.
+
+A run always begins with the throttle shut until Cross is released and pressed
+again, so the press that dismissed a menu cannot also start the clock.
 
 Holding brake for a quarter second once the bike has stopped engages reverse,
 and it stays engaged until the button is released. The original had no reverse
@@ -223,6 +229,15 @@ and draw order can be looked at directly.
 
 Run both before building a VPK. They are much faster than a flash-and-look
 cycle and they catch the bugs a UDP log cannot explain.
+
+## Screens
+
+`src/app.c` owns the flow: start screen, settings, the world/level/bike menus,
+the race, pause, and the end-of-run panel. Every screen is its own module under
+`src/ui/`, and the ones that are a vertical list of choices share
+`src/ui/optionlist.c` rather than each growing its own navigation and
+hit-testing. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
+primitives in `src/ui/glyphs.c`, since a touch game shipped none.
 
 ## Sound
 

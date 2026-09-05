@@ -4,7 +4,10 @@
 #include <string.h>
 
 #include "engine/render.h"
+#include "platform/audio.h"
 #include "platform/log.h"
+#include "ui/glyphs.h"
+#include "ui/theme.h"
 
 /* Linked in by src/game/blobs.S on the Vita; the host tests hand these over as
  * pointers to files they read instead. */
@@ -20,6 +23,12 @@ extern const unsigned char br_font_body_start[];
 extern const unsigned char br_font_body_end[];
 #endif
 
+static void apply_audio_settings(br_app *app)
+{
+    br_game_audio_set_enabled(&app->game.audio, app->save.sound_on,
+                              app->save.music_on);
+}
+
 int br_app_init(br_app *app)
 {
     memset(app, 0, sizeof(*app));
@@ -29,6 +38,9 @@ int br_app_init(br_app *app)
         br_font_load(&app->body, br_font_body_start,
                      (unsigned)(br_font_body_end - br_font_body_start)) < 0)
         return -1;
+
+    if (br_audio_init() < 0)
+        LOGW("app: no audio device -- carrying on silently");
 
     if (br_game_init(&app->game) < 0)
         return -1;
@@ -41,13 +53,18 @@ int br_app_init(br_app *app)
     br_ui_art_load(&app->art);
     br_menu_init(&app->menu, &app->art);
     br_pause_init(&app->pause, &app->art);
+    br_result_init(&app->result, &app->art);
+    br_start_init(&app->start, &app->art);
+    br_settings_init(&app->settings, &app->art);
 
     app->menu.world = app->save.last_world;
     app->menu.level = app->save.last_level;
     app->menu.bike  = app->save.bike_type;
     app->game.bike_type = (br_bike_type)app->save.bike_type;
-    br_menu_open_worlds(&app->menu);
-    app->screen = BR_APP_MENU;
+
+    br_start_open(&app->start);
+    app->screen = BR_APP_START;
+    apply_audio_settings(app);
     br_game_audio_music(&app->game.audio, 1);
 
     LOGI("app: ready -- %d worlds, %d stars saved",
@@ -64,42 +81,106 @@ void br_app_free(br_app *app)
     br_game_free(&app->game);
     br_font_free(&app->display);
     br_font_free(&app->body);
+    br_audio_shutdown();
 }
 
-static void back_to_menu(br_app *app)
+/* ---------------------------------------------------------- transitions -- */
+
+static void to_menu(br_app *app)
 {
     br_save_flush(&app->save);
     br_game_audio_silence(&app->game.audio);
     br_game_audio_music(&app->game.audio, 1);
-    br_menu_open_levels(&app->menu, app->menu.world);
     app->screen = BR_APP_MENU;
 }
 
-static void start_race(br_app *app)
+static void resume_race(br_app *app)
+{
+    /* The button that dismissed the overlay must not also open the throttle. */
+    br_game_lock_throttle(&app->game);
+    app->screen = BR_APP_RACING;
+}
+
+static void begin_race(br_app *app, int world, int level)
 {
     if (app->game.bike_type != (br_bike_type)app->menu.bike) {
         app->game.bike_type = (br_bike_type)app->menu.bike;
         app->save.bike_type = app->menu.bike;
         app->save.dirty = 1;
     }
-    if (br_game_load(&app->game, app->menu.world, app->menu.level) < 0) {
-        LOGE("app: could not start %d-%d", app->menu.world + 1, app->menu.level + 1);
+    if (br_game_load(&app->game, world, level) < 0) {
+        LOGE("app: could not start %d-%d", world + 1, level + 1);
         return;
     }
-    br_save_remember_place(&app->save, app->menu.world, app->menu.level);
+    br_save_remember_place(&app->save, world, level);
     br_game_audio_music(&app->game.audio, 0);
     app->last_race_state = app->game.state;
-    app->screen = BR_APP_RACING;
+    resume_race(app);
+}
+
+static void show_result(br_app *app)
+{
+    const br_level_progress *progress =
+        br_save_level(&app->save, app->game.world_index, app->game.level_index);
+    float previous_best = progress ? progress->best_time : 0.0f;
+    int finished = app->game.state == BR_STATE_FINISHED;
+    int record = finished && (previous_best <= 0.0f || app->game.elapsed < previous_best);
+
+    if (finished) {
+        br_save_record(&app->save, app->game.world_index, app->game.level_index,
+                       app->game.stars, app->game.elapsed);
+        br_save_flush(&app->save);
+    }
+
+    br_result_open(&app->result, finished, app->game.stars, app->game.elapsed,
+                   previous_best, record);
+    app->screen = BR_APP_RESULT;
+}
+
+/* --------------------------------------------------------------- update -- */
+
+static void update_start(br_app *app, const br_input *in, float dt)
+{
+    switch (br_start_update(&app->start, in, dt)) {
+    case BR_START_SINGLE_PLAYER:
+        br_menu_open_worlds(&app->menu);
+        app->screen = BR_APP_MENU;
+        break;
+    case BR_START_SETTINGS:
+        br_settings_open(&app->settings, &app->save.sound_on, &app->save.music_on,
+                         &app->save.dirty);
+        app->screen = BR_APP_SETTINGS;
+        break;
+    case BR_START_EXIT:
+        app->quit = 1;
+        break;
+    case BR_START_NOTHING:
+        break;
+    }
+}
+
+static void update_settings(br_app *app, const br_input *in, float dt)
+{
+    int was_sound = app->save.sound_on, was_music = app->save.music_on;
+
+    if (br_settings_update(&app->settings, in, dt) == BR_SETTINGS_CLOSE) {
+        br_save_flush(&app->save);
+        br_start_open(&app->start);
+        app->screen = BR_APP_START;
+    }
+    if (app->save.sound_on != was_sound || app->save.music_on != was_music)
+        apply_audio_settings(app);
 }
 
 static void update_menu(br_app *app, const br_input *in, float dt)
 {
     switch (br_menu_update(&app->menu, in, dt, &app->game.pack)) {
     case BR_MENU_PLAY:
-        start_race(app);
+        begin_race(app, app->menu.world, app->menu.level);
         break;
-    case BR_MENU_QUIT:
-        app->quit = 1;
+    case BR_MENU_BACK:
+        br_start_open(&app->start);
+        app->screen = BR_APP_START;
         break;
     case BR_MENU_STAY:
         break;
@@ -108,8 +189,6 @@ static void update_menu(br_app *app, const br_input *in, float dt)
 
 static void update_race(br_app *app, const br_input *in, float dt)
 {
-    /* Start pauses; Circle resets, which br_game_update handles; Cross moves
-     * on once the run is over. */
     if (in->pause_pressed) {
         br_game_audio_silence(&app->game.audio);
         br_pause_open(&app->pause);
@@ -120,35 +199,60 @@ static void update_race(br_app *app, const br_input *in, float dt)
     br_game_update(&app->game, in, dt);
 
     if (app->game.state != app->last_race_state) {
-        if (app->game.state == BR_STATE_FINISHED) {
-            br_save_record(&app->save, app->game.world_index, app->game.level_index,
-                           app->game.stars, app->game.elapsed);
-            br_save_flush(&app->save);
-        }
         app->last_race_state = app->game.state;
+        if (app->game.state == BR_STATE_FINISHED || app->game.state == BR_STATE_DEAD) {
+            show_result(app);
+            return;
+        }
     }
 
-    /* Following the game into the next level keeps the menu in step with it. */
     app->menu.world = app->game.world_index;
     app->menu.level = app->game.level_index;
-    br_save_remember_place(&app->save, app->game.world_index, app->game.level_index);
 }
 
 static void update_paused(br_app *app, const br_input *in, float dt)
 {
     switch (br_pause_update(&app->pause, in, dt)) {
     case BR_PAUSE_RESUME:
-        app->screen = BR_APP_RACING;
+        resume_race(app);
         break;
     case BR_PAUSE_RESTART:
         br_game_restart(&app->game);
         app->last_race_state = app->game.state;
-        app->screen = BR_APP_RACING;
+        resume_race(app);
         break;
     case BR_PAUSE_MENU:
-        back_to_menu(app);
+        br_menu_open_levels(&app->menu, app->game.world_index);
+        to_menu(app);
         break;
     case BR_PAUSE_NOTHING:
+        break;
+    }
+}
+
+static void update_result(br_app *app, const br_input *in, float dt)
+{
+    switch (br_result_update(&app->result, in, dt)) {
+    case BR_RESULT_NEXT:
+        if (br_game_next_level(&app->game) == 0) {
+            app->menu.world = app->game.world_index;
+            app->menu.level = app->game.level_index;
+            br_save_remember_place(&app->save, app->game.world_index,
+                                   app->game.level_index);
+            app->last_race_state = app->game.state;
+            resume_race(app);
+        }
+        break;
+    case BR_RESULT_REPEAT:
+        br_game_restart(&app->game);
+        app->last_race_state = app->game.state;
+        resume_race(app);
+        break;
+    case BR_RESULT_MENU:
+        br_menu_open_levels(&app->menu, app->game.world_index);
+        to_menu(app);
+        break;
+    case BR_RESULT_NOTHING:
         break;
     }
 }
@@ -156,81 +260,84 @@ static void update_paused(br_app *app, const br_input *in, float dt)
 void br_app_update(br_app *app, const br_input *in, float dt)
 {
     switch (app->screen) {
-    case BR_APP_MENU:   update_menu(app, in, dt);   break;
-    case BR_APP_RACING: update_race(app, in, dt);   break;
-    case BR_APP_PAUSED: update_paused(app, in, dt); break;
+    case BR_APP_START:    update_start(app, in, dt);    break;
+    case BR_APP_SETTINGS: update_settings(app, in, dt); break;
+    case BR_APP_MENU:     update_menu(app, in, dt);     break;
+    case BR_APP_RACING:   update_race(app, in, dt);     break;
+    case BR_APP_PAUSED:   update_paused(app, in, dt);   break;
+    case BR_APP_RESULT:   update_result(app, in, dt);   break;
     }
 }
 
-/* A thin strip of state over the race: clock, stars and what to press next. */
+/* ----------------------------------------------------------------- draw -- */
+
+/* A thin strip over the race: clock, level name, star targets. */
 static void draw_race_overlay(br_app *app)
 {
-    static const br_color TEXT   = { 0.99f, 0.97f, 0.92f, 1.0f };
-    /* Black at 45%, which is already premultiplied. */
     static const br_color SHADOW = { 0.0f, 0.0f, 0.0f, 0.45f };
+    static const br_hint waiting[] = { { BR_BUTTON_CROSS, "start" } };
     const br_level *level = app->game.level;
     char text[96];
 
     br_ui_begin();
-
-    br_fill_rect(0.0f, 0.0f, 960.0f, 46.0f, &SHADOW);
+    br_fill_rect(0.0f, 0.0f, BR_UI_W, 46.0f, &SHADOW);
 
     snprintf(text, sizeof(text), "%d-%d  %s",
              app->game.world_index + 1, app->game.level_index + 1,
              br_world_name(app->game.world_index));
-    br_font_draw(&app->body, text, 16.0f, 10.0f, 26.0f, &TEXT);
+    br_font_draw(&app->body, text, 16.0f, 10.0f, 26.0f, &BR_TEXT);
 
     snprintf(text, sizeof(text), "%.2f", app->game.elapsed);
-    br_font_draw_centered(&app->display, text, 480.0f, 6.0f, 34.0f, &TEXT);
+    br_font_draw_centered(&app->display, text, BR_UI_W * 0.5f, 6.0f, 34.0f, &BR_TEXT);
 
     snprintf(text, sizeof(text), "target %.0f / %.0f / %.0f",
              level->star_times[0], level->star_times[1], level->star_times[2]);
-    br_font_draw_right(&app->body, text, 944.0f, 12.0f, 22.0f, &TEXT);
+    br_font_draw_right(&app->body, text, BR_UI_W - 16.0f, 12.0f, 22.0f, &BR_TEXT);
 
-    switch (app->game.state) {
-    case BR_STATE_WAITING_START:
-        br_font_draw_centered(&app->display, "PRESS CROSS TO START", 480.0f,
-                              440.0f, 36.0f, &TEXT);
-        break;
-    case BR_STATE_FINISHED:
-        snprintf(text, sizeof(text), "FINISHED  %.2fs  -  %d STARS",
-                 app->game.elapsed, app->game.stars);
-        br_font_draw_centered(&app->display, text, 480.0f, 420.0f, 36.0f, &TEXT);
-        br_font_draw_centered(&app->body, "Cross  next level      Start  menu",
-                              480.0f, 466.0f, 24.0f, &TEXT);
-        break;
-    case BR_STATE_DEAD:
-        br_font_draw_centered(&app->display, "CRASHED", 480.0f, 420.0f, 36.0f, &TEXT);
-        br_font_draw_centered(&app->body, "Cross  retry      Start  menu",
-                              480.0f, 466.0f, 24.0f, &TEXT);
-        break;
-    case BR_STATE_RUNNING:
-        break;
-    }
+    if (app->game.state == BR_STATE_WAITING_START)
+        br_hints_draw(waiting, 1, &app->body,
+                      (BR_UI_W - br_hints_width(waiting, 1, &app->body, 30.0f)) * 0.5f,
+                      BR_UI_H - 90.0f, 30.0f, &BR_TEXT);
+}
+
+static void level_caption(const br_app *app, char *out, unsigned size)
+{
+    snprintf(out, size, "%d-%d  %s", app->game.world_index + 1,
+             app->game.level_index + 1, br_world_name(app->game.world_index));
 }
 
 void br_app_draw(br_app *app, unsigned time_ms)
 {
     static const br_color CLEAR = { 0.03f, 0.04f, 0.06f, 1.0f };
+    char caption[64];
 
     br_render_begin(&CLEAR);
 
-    if (app->screen == BR_APP_MENU) {
+    switch (app->screen) {
+    case BR_APP_START:
+        br_start_draw(&app->start, &app->display, &app->body);
+        break;
+
+    case BR_APP_SETTINGS:
+        br_start_draw_backdrop(&app->start, &app->display);
+        br_settings_draw(&app->settings, &app->display, &app->body);
+        break;
+
+    case BR_APP_MENU:
         br_menu_draw(&app->menu, &app->game.pack, &app->save,
                      &app->display, &app->body);
-    } else {
-        char where[64];
+        break;
 
+    default:
         br_scene_draw(&app->game.scene, app->game.level, &app->game.camera,
                       &app->game.bike, time_ms);
         draw_race_overlay(app);
-
-        if (app->screen == BR_APP_PAUSED) {
-            snprintf(where, sizeof(where), "%d-%d  %s",
-                     app->game.world_index + 1, app->game.level_index + 1,
-                     br_world_name(app->game.world_index));
-            br_pause_draw(&app->pause, &app->display, &app->body, where);
-        }
+        level_caption(app, caption, sizeof(caption));
+        if (app->screen == BR_APP_PAUSED)
+            br_pause_draw(&app->pause, &app->display, &app->body, caption);
+        else if (app->screen == BR_APP_RESULT)
+            br_result_draw(&app->result, &app->display, &app->body, caption);
+        break;
     }
 
     br_render_end();

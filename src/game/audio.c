@@ -38,6 +38,8 @@ int br_game_audio_init(br_game_audio *audio)
     memset(audio, 0, sizeof(*audio));
     audio->engine_sfx = -1;
     audio->spooky_seed = 1;
+    audio->sound_on = 1;
+    audio->music_on = 1;
 
     for (i = 0; i < BR_SFX_COUNT; i++) {
         snprintf(path, sizeof(path), "%s/sfx/%s", br_asset_root(), s_files[i]);
@@ -50,6 +52,7 @@ int br_game_audio_init(br_game_audio *audio)
     br_sound_load(&audio->music, path);
 
     audio->ready = loaded > 0;
+    audio->music_wanted = 0;
     LOGI("audio: %d of %d effects, music %s", loaded, BR_SFX_COUNT,
          audio->music.samples ? "loaded" : "absent");
     return 0;
@@ -66,8 +69,19 @@ void br_game_audio_free(br_game_audio *audio)
     memset(audio, 0, sizeof(*audio));
 }
 
+void br_game_audio_set_enabled(br_game_audio *audio, int sound_on, int music_on)
+{
+    audio->sound_on = sound_on;
+    audio->music_on = music_on;
+    if (!sound_on)
+        br_game_audio_silence(audio);
+    br_game_audio_music(audio, audio->music_wanted);
+}
+
 static void play_once(br_game_audio *audio, br_sfx which, float volume)
 {
+    if (!audio->sound_on)
+        return;
     br_audio_play(&audio->sfx[which], volume, 0);
 }
 
@@ -92,6 +106,10 @@ void br_game_audio_engine(br_game_audio *audio, int accelerating, float rear_spe
 {
     if (!audio->ready)
         return;
+    if (!audio->sound_on) {
+        br_game_audio_silence(audio);
+        return;
+    }
 
     audio->engine_time += dt;
 
@@ -194,10 +212,11 @@ void br_game_audio_spooky(br_game_audio *audio)
 
 void br_game_audio_music(br_game_audio *audio, int playing)
 {
+    audio->music_wanted = playing;
     if (!audio->music.samples)
         return;
 
-    if (playing) {
+    if (playing && audio->music_on) {
         if (!br_audio_playing(audio->music_voice))
             audio->music_voice = br_audio_play(&audio->music, 0.7f, 1);
     } else {

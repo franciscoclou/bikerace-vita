@@ -8,7 +8,11 @@
 #include "../platform/log.h"
 
 #define SAVE_MAGIC   "BRSV"
-#define SAVE_VERSION 1
+/* v2 added the sound and music toggles. v1 files still load; they simply
+ * predate the settings screen, so both default to on. */
+#define SAVE_VERSION 2
+#define HEADER_V1    28
+#define HEADER_V2    36
 #define RECORD_SIZE  8
 
 static void save_path(char *out, unsigned size)
@@ -21,6 +25,8 @@ int br_save_init(br_save *save, int world_count, int levels_per_world)
     memset(save, 0, sizeof(*save));
     save->world_count = world_count;
     save->levels_per_world = levels_per_world;
+    save->sound_on = 1;
+    save->music_on = 1;
     save->levels = calloc((size_t)(world_count * levels_per_world),
                           sizeof(br_level_progress));
     if (!save->levels) {
@@ -121,8 +127,9 @@ static float get_f32(const unsigned char *p)
 void br_save_load(br_save *save)
 {
     char path[256];
-    unsigned char header[28];
+    unsigned char header[HEADER_V2];
     FILE *f;
+    unsigned version;
     int worlds, per_world, w, l;
 
     save_path(path, sizeof(path));
@@ -132,12 +139,28 @@ void br_save_load(br_save *save)
         return;
     }
 
-    if (fread(header, 1, sizeof(header), f) != sizeof(header) ||
-        memcmp(header, SAVE_MAGIC, 4) != 0 ||
-        get_u32(header + 4) != SAVE_VERSION) {
+    if (fread(header, 1, HEADER_V1, f) != HEADER_V1 ||
+        memcmp(header, SAVE_MAGIC, 4) != 0) {
         LOGW("save: %s is not a save this build understands -- ignoring it", path);
         fclose(f);
         return;
+    }
+
+    version = get_u32(header + 4);
+    if (version != 1 && version != SAVE_VERSION) {
+        LOGW("save: %s is version %u -- ignoring it", path, version);
+        fclose(f);
+        return;
+    }
+    if (version >= 2) {
+        if (fread(header + HEADER_V1, 1, HEADER_V2 - HEADER_V1, f) !=
+            HEADER_V2 - HEADER_V1) {
+            LOGW("save: %s header is short -- ignoring it", path);
+            fclose(f);
+            return;
+        }
+        save->sound_on = get_u32(header + 28) != 0;
+        save->music_on = get_u32(header + 32) != 0;
     }
 
     worlds    = (int)get_u32(header + 8);
@@ -171,14 +194,15 @@ done:
     if (save->last_level < 0 || save->last_level >= save->levels_per_world)
         save->last_level = 0;
     save->dirty = 0;
-    LOGI("save: loaded %s -- %d stars, resuming at %d-%d",
-         path, br_save_total_stars(save), save->last_world + 1, save->last_level + 1);
+    LOGI("save: loaded %s (v%u) -- %d stars, resuming at %d-%d, sound %d music %d",
+         path, version, br_save_total_stars(save),
+         save->last_world + 1, save->last_level + 1, save->sound_on, save->music_on);
 }
 
 int br_save_flush(br_save *save)
 {
     char path[256];
-    unsigned char header[28];
+    unsigned char header[HEADER_V2];
     FILE *f;
     int w, l;
 
@@ -199,6 +223,8 @@ int br_save_flush(br_save *save)
     put_u32(header + 16, (unsigned)save->last_world);
     put_u32(header + 20, (unsigned)save->last_level);
     put_u32(header + 24, (unsigned)save->bike_type);
+    put_u32(header + 28, (unsigned)(save->sound_on != 0));
+    put_u32(header + 32, (unsigned)(save->music_on != 0));
     if (fwrite(header, 1, sizeof(header), f) != sizeof(header))
         goto fail;
 

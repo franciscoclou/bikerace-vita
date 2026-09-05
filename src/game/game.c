@@ -81,6 +81,7 @@ static void reset_run(br_game *game)
     game->ground_factor = 1.0f;
     game->brake_held = 0.0f;
     game->reversing  = 0;
+    game->throttle_locked = 1;
     br_game_audio_silence(&game->audio);
 }
 
@@ -246,19 +247,32 @@ static void update_camera(br_game *game, float dt)
                      settle, rate, 0, br_render_aspect());
 }
 
+void br_game_lock_throttle(br_game *game)
+{
+    game->throttle_locked = 1;
+}
+
 void br_game_update(br_game *game, const br_input *in, float dt)
 {
     br_bike_state want;
+    int accelerate;
 
     if (dt > MAX_FRAME_DT)
         dt = MAX_FRAME_DT;
 
-    if (in->back_pressed)
-        br_game_restart(game);
+    /* A held throttle only counts once it has been released and pressed
+     * again, so dismissing a menu with Cross cannot also launch the bike. */
+    accelerate = in->accelerate;
+    if (game->throttle_locked) {
+        if (accelerate)
+            accelerate = 0;
+        else
+            game->throttle_locked = 0;
+    }
 
     switch (game->state) {
     case BR_STATE_WAITING_START:
-        if (in->accelerate || in->brake || in->confirm_pressed) {
+        if (accelerate || in->brake) {
             game->state = BR_STATE_RUNNING;
             LOGI("game: race started on %d-%d",
                  game->world_index + 1, game->level_index + 1);
@@ -267,13 +281,6 @@ void br_game_update(br_game *game, const br_input *in, float dt)
 
     case BR_STATE_FINISHED:
     case BR_STATE_DEAD:
-        if (in->confirm_pressed) {
-            if (game->state == BR_STATE_FINISHED)
-                br_game_next_level(game);
-            else
-                br_game_restart(game);
-            return;
-        }
         break;
 
     case BR_STATE_RUNNING:
@@ -295,7 +302,7 @@ void br_game_update(br_game *game, const br_input *in, float dt)
             game->reversing  = 0;
         }
 
-        if (in->accelerate)   want = BR_BIKE_ACCELERATING;
+        if (accelerate)       want = BR_BIKE_ACCELERATING;
         else if (in->brake)   want = game->reversing ? BR_BIKE_REVERSING
                                                      : BR_BIKE_BRAKING;
         else                  want = BR_BIKE_IDLE;

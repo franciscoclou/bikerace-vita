@@ -52,7 +52,7 @@ static const char *s_atlas_files[][2] = {
 #define TRACK_THICKNESS  0.05f
 #define POLE_WIDTH       0.18f
 #define FLAG_WIDTH       0.6666667f
-#define WHEEL_WIDTH      0.2f
+#define WHEEL_WIDTH      BR_BIKE_WHEEL_DIAMETER
 #define FLAG_FRAME_MS    55
 #define RIDER_DROP      (-0.11f)
 /* Divisors from GameSceneDirector: the further layer moves less. */

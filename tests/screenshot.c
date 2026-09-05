@@ -85,6 +85,7 @@ static void race(br_app *app, const char *dir, const char *name,
     }
     if (seconds > 0.0f)
         race_for(app, seconds);
+    app->screen = BR_APP_RACING;
     shoot(app, dir, name, (unsigned)(seconds * 1000.0f));
 }
 
@@ -102,9 +103,25 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    app.screen = BR_APP_START;
+    shoot(&app, dir, "start", 0);
+
+    br_settings_open(&app.settings, &app.save.sound_on, &app.save.music_on,
+                     &app.save.dirty);
+    app.screen = BR_APP_SETTINGS;
+    shoot(&app, dir, "settings", 0);
+    app.settings.showing_controls = 1;
+    shoot(&app, dir, "settings_controls", 0);
+    app.settings.showing_controls = 0;
+
+    app.screen = BR_APP_MENU;
     br_menu_open_worlds(&app.menu);
     app.menu.world = 0;
     shoot(&app, dir, "menu_worlds", 0);
+
+    app.menu.world = app.game.pack.world_count;   /* the bike cell */
+    shoot(&app, dir, "menu_worlds_bike_cell", 0);
+    app.menu.world = 0;
 
     app.menu.world = 15;                    /* Halloween, to show the grid wrap */
     shoot(&app, dir, "menu_worlds_late", 0);
@@ -120,17 +137,23 @@ int main(int argc, char **argv)
     br_menu_open_bikes(&app.menu);
     app.menu.bike = BR_BIKE_ULTRA;
     shoot(&app, dir, "menu_bikes", 0);
-    br_menu_close_bikes(&app.menu);
 
     race(&app, dir, "race_w01_l1_start", 0, 0, 0.0f);
     race(&app, dir, "race_w01_l1", 0, 0, 2.0f);
     race(&app, dir, "race_w16_l1", 15, 0, 3.0f);
 
-    /* Pause sits on top of the frozen race. */
+    /* Pause and the end-of-run panel sit on top of the frozen race. */
     race(&app, dir, "race_w01_l3", 0, 2, 2.5f);
     br_pause_open(&app.pause);
     app.screen = BR_APP_PAUSED;
     shoot(&app, dir, "pause", 2500);
+
+    br_result_open(&app.result, 1, 3, 9.42f, 11.80f, 1);
+    app.screen = BR_APP_RESULT;
+    shoot(&app, dir, "result_complete", 2500);
+
+    br_result_open(&app.result, 0, 0, 4.10f, 0.0f, 0);
+    shoot(&app, dir, "result_crashed", 2500);
 
     br_app_free(&app);
     return 0;

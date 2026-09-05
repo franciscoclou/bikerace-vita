@@ -38,6 +38,9 @@ typedef enum {
     BR_BIKE_TYPE_COUNT
 } br_bike_type;
 
+/* Wheel diameter in world units, shared by the race and the menus. */
+#define BR_BIKE_WHEEL_DIAMETER 0.2f
+
 /* Three bikes carry their own wheel art. */
 typedef enum {
     BR_WHEEL_STANDARD = 0,

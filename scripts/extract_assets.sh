@@ -57,9 +57,28 @@ mkdir -p "$OUT/ui"
 for f in fundo.png logo.png button_background_default.png \
          button_level_default.png button_level_pressed.png \
          star_fill_small.png star_empty_dark.png button_back_default.png \
-         pause_fundo.png; do
+         pause_fundo.png start_screen.png result_window.png; do
   cp "apk/res/drawable-xhdpi/$f" "$OUT/ui/$f"
 done
+# The bike list shows wheels, but wheels live inside the world atlases. Crop
+# the three variants out once so the menus never have to load an atlas. The
+# regions are the same in every atlas, so world 1's will do.
+ATLAS=apk/res/drawable-nodpi/bikerace_textura1b.png
+crop_wheel() {  # name left top right bottom  (normalised, as TextureCoordinates has them)
+  convert "$ATLAS" -crop \
+    "$(python3 -c "
+import sys
+from PIL import Image
+w,h = Image.open('$ATLAS').size
+l,t,r,b = float('$2'),float('$3'),float('$4'),float('$5')
+print('%dx%d+%d+%d' % (round((r-l)*w), round((b-t)*h), round(l*w), round(t*h)))")" \
+    +repage "$OUT/ui/$1"
+}
+crop_wheel wheel.png           0.95654297 0.32763672 0.98583984 0.3569336
+crop_wheel wheel_halloween.png 0.95654297 0.35888672 0.98583984 0.3876953
+crop_wheel wheel_ultra.png     0.95703125 0.39160156 0.98535156 0.41992188
+cp apk/res/drawable-nodpi/santa_wheel.png "$OUT/ui/wheel_santa.png"
+
 echo "   $(ls "$OUT"/ui | wc -l) files"
 
 # --- fonts ------------------------------------------------------------------

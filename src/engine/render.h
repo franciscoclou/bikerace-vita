@@ -62,6 +62,14 @@ void  br_draw_rect(float left, float top, float right, float bottom,
 void  br_draw_sprite(const br_texture *tex, float w, float h, const br_color *color);
 /* Solid rectangle in the current transform, given as position and size. */
 void  br_fill_rect(float x, float y, float w, float h, const br_color *color);
+/* Solid shapes for UI chrome, all in the current transform. */
+void  br_fill_round_rect(float x, float y, float w, float h, float radius,
+                         const br_color *color);
+void  br_fill_circle(float cx, float cy, float radius, const br_color *color);
+void  br_stroke_circle(float cx, float cy, float radius, float thickness,
+                       const br_color *color);
+void  br_fill_line(float x0, float y0, float x1, float y1, float thickness,
+                   const br_color *color);
 void  br_draw_mesh(const br_mesh *mesh);
 /* Loose triangles, for batching many quads into one call. */
 void  br_draw_triangles(const float *xy, const float *uv, int vertex_count,

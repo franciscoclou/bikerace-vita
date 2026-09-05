@@ -19,6 +19,7 @@ typedef struct {
 
     int last_world, last_level;   /* where the menu should open */
     int bike_type;
+    int sound_on, music_on;
 
     int dirty;
 } br_save;
