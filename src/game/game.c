@@ -31,12 +31,22 @@ int br_game_init(br_game *game)
     if (br_scene_init(&game->scene) < 0)
         return -1;
 
-    game->nearby_max = 4096;
+    /* A query can return every board in a level, so size the scratch to the
+     * biggest one rather than a guess -- overflowing it would silently drop
+     * collisions and drive the bike through the track. */
+    {
+        int w, l;
+        for (w = 0; w < game->pack.world_count; w++)
+            for (l = 0; l < game->pack.worlds[w].level_count; l++)
+                if (game->pack.worlds[w].levels[l].boards.count > game->nearby_max)
+                    game->nearby_max = game->pack.worlds[w].levels[l].boards.count;
+    }
     game->nearby = malloc(sizeof(int) * (size_t)game->nearby_max);
     if (!game->nearby) {
-        LOGE("game: out of memory for broad-phase scratch");
+        LOGE("game: out of memory for broad-phase scratch (%d)", game->nearby_max);
         return -1;
     }
+    LOGI("game: broad-phase scratch sized for %d boards", game->nearby_max);
     game->bike_type = BR_BIKE_REGULAR;
     return 0;
 }

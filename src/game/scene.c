@@ -30,17 +30,22 @@ static const float s_flag_uv[8][4] = {
     { 0.9536133f, 0.29736328f,  0.9995117f, 0.32666016f  },
 };
 
-static const char *s_atlas_files[] = {
-    "bikerace_textura1.png",             /* desert       -- worlds 1, 7  */
-    "bikerace_textura2.png",             /* arctic       -- worlds 2, 8  */
-    "bikerace_textura3.png",             /* dunes        -- worlds 3, 9  */
-    "bikerace_textura4.png",             /* hills        -- worlds 4, 10 */
-    "bikerace_textura5.png",             /* beach        -- worlds 5, 11 */
-    "bikerace_textura6.png",             /* savanna      -- worlds 6, 12 */
-    "bikerace_textura_easter.png",       /* world 19 */
-    "bikerace_textura_halloween.png",    /* world 16 */
-    "bikerace_textura_holiday1.png",     /* worlds 13, 14, 15, 18 */
-    "bikerace_textura_thanksgiving.png", /* world 17 */
+/* Each world ships its art twice, at 2048 and at 1024. Both have the same UV
+ * layout, and the original only reaches for the large set on a screen wider or
+ * taller than 1024 -- which the Vita's 960x544 is not -- so the small one is
+ * both the faithful choice and a quarter of the video memory. The large file
+ * is the fallback in case only it was copied across. */
+static const char *s_atlas_files[][2] = {
+    { "bikerace_textura1b.png",            "bikerace_textura1.png"             }, /* desert,  worlds 1, 7  */
+    { "bikerace_textura2b.png",            "bikerace_textura2.png"             }, /* arctic,  worlds 2, 8  */
+    { "bikerace_textura3b.png",            "bikerace_textura3.png"             }, /* dunes,   worlds 3, 9  */
+    { "bikerace_textura4b.png",            "bikerace_textura4.png"             }, /* hills,   worlds 4, 10 */
+    { "bikerace_textura5b.png",            "bikerace_textura5.png"             }, /* beach,   worlds 5, 11 */
+    { "bikerace_textura6b.png",            "bikerace_textura6.png"             }, /* savanna, worlds 6, 12 */
+    { "bikerace_textura_easterb.png",      "bikerace_textura_easter.png"       }, /* world 19 */
+    { "bikerace_textura_hallowenb.png",    "bikerace_textura_halloween.png"    }, /* world 16 (the typo is the shipped filename) */
+    { "bikerace_textura_holiday1b.png",    "bikerace_textura_holiday1.png"     }, /* worlds 13, 14, 15, 18 */
+    { "bikerace_textura_thanksgivingb.png","bikerace_textura_thanksgiving.png" }, /* world 17 */
 };
 #define ATLAS_COUNT ((int)(sizeof(s_atlas_files) / sizeof(s_atlas_files[0])))
 
@@ -104,11 +109,20 @@ int br_scene_use(br_scene *scene, int atlas_index, br_bike_type bike)
     }
 
     if (atlas_index != scene->atlas_index) {
+        int variant;
+
         br_image_free(&scene->atlas);
-        snprintf(path, sizeof(path), "%s/textures/%s",
-                 br_asset_root(), s_atlas_files[atlas_index]);
-        if (br_image_load(&scene->atlas, path) < 0)
+        for (variant = 0; variant < 2; variant++) {
+            snprintf(path, sizeof(path), "%s/textures/%s",
+                     br_asset_root(), s_atlas_files[atlas_index][variant]);
+            if (br_image_load(&scene->atlas, path) == 0)
+                break;
+        }
+        if (variant == 2) {
+            LOGE("scene: no atlas for index %d -- copy the textures to %s/textures",
+                 atlas_index, br_asset_root());
             return -1;
+        }
         scene->atlas_index = atlas_index;
     }
 

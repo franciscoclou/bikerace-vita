@@ -16,33 +16,34 @@ Legend: **done** · **wip** · **todo**
 - [x] LiveArea icon/bg from the original app icon (8-bit palette PNG —
       truecolour makes the install fail with `0x8010113D`)
 
-## Phase 1 — it boots and draws  ⬅ you are here
+## Phase 1 — it boots and draws  ✅ done
 
 - [x] `main.c` loop: vitaGL init, timing, input poll, swap
 - [x] `Vector2D` → [src/engine/vec2.h](../src/engine/vec2.h)
 - [x] `Body` / `ComposedBody` / `SpringShockAbsorber` → [src/engine/body.c](../src/engine/body.c)
-- [ ] **Verify on hardware**: does the VPK install, boot, and log?
-- [ ] Texture loading: PNG → GXM texture, atlas page + UV rect (`engine.b.h`)
-- [ ] `IVideoDriver` implementation on vitaGL fixed-function (`engine.b.f`)
+- [x] `Utils` segment maths → [src/engine/geom.c](../src/engine/geom.c)
+- [x] Texture loading: PNG → GL texture, atlas page + UV rect (`engine.b.h`)
+- [x] `IVideoDriver` on vitaGL fixed function (`engine.b.f`)
 
-## Phase 2 — a level you can look at
+## Phase 2 — a level you can look at  ✅ done
 
-- [ ] `Board` (one segment) and `LevelBoards`
-- [ ] `LevelBoardsBuilder` — `deltas`, `arc`, `fillet` (`bikerace.h.c`)
-- [ ] Transcribe `LevelFactoryWorld1` (8 levels) — by hand first, to pin the
-      semantics, then script the remaining 18 worlds
-- [ ] `LevelMeshLoader`: polyline → textured ribbon (`bikerace.h.w`)
-- [ ] `Camera` (`bikerace.e`)
-- [ ] Scene graph: `BaseSceneNode`, `SpriteSceneNode`, `MeshSceneNode`,
-      `CyclicSpriteSceneNode` (parallax)
+- [x] `Board` and `LevelBoards`, including the x-slab broad phase
+- [x] All 19 worlds' geometry, by running the original factories — see
+      `scripts/dumplevels.sh`. `LevelBoardsBuilder` itself is never ported.
+- [x] `LevelMeshLoader`: polyline → textured ribbon
+- [x] `Camera`
+- [x] Scene transforms: root, camera, sprite and the cyclic parallax layers
 
-## Phase 3 — it plays
+## Phase 3 — it plays  ⬅ you are here
 
-- [ ] `Bike` (`bikerace.a`, 794 lines) — bodies, springs, wheel/track collision
-- [ ] `Game` (`bikerace.f`, 914 lines) — step order, timing, win/lose, restart
-- [ ] Controls: R/L triggers and touch halves → accelerate/brake, stick → lean
-- [ ] `GameSceneDirector` (`bikerace.ac`) — scene assembly per level
-- [ ] Star times and level completion
+- [x] `Bike` — bodies, springs, wheel/track collision, crash test
+- [x] `Game` — substep order, timing, win/lose, restart
+- [x] Controls: R/L triggers and touch halves → accelerate/brake, stick → lean
+- [x] Scene assembly per level: backgrounds, track, finish pole and flag, bike
+- [x] Star times and level completion
+- [ ] **Play it on hardware and tune the feel**
+- [ ] Bike sprite offsets are in place for six bikes; the rest of the shop
+      bikes need their rows from `GameSceneDirector`'s tables
 
 ## Phase 4 — the game around the game
 
@@ -59,6 +60,22 @@ Ads, analytics, Facebook, AWS/DynamoDB, MQTT multiplayer, in-app billing, push
 notifications, downloadable user levels, the World Cup gacha shop. Anywhere the
 original gates content behind these, the port unlocks it.
 
+## Verifying without a Vita
+
+`make -C tests run` compiles the game's own sources on the host with GL and
+the logger stubbed, then exercises the physics, level data, camera and broad
+phase. It checks that 1-1 can actually be completed and that all 152 levels
+simulate without diverging.
+
+`make -C tests shots` goes further: the GL stub has a small software
+rasteriser, so it renders real frames to `tests/shots/*.png`. That is how the
+scene transforms, atlas regions and draw order were checked before anything
+was flashed.
+
+Neither replaces running it on hardware — they say nothing about GXM,
+performance or memory — but they catch the class of bug that is miserable to
+diagnose from a UDP log.
+
 ## Open questions
 
 - **Non-power-of-two UI art.** 466 of 524 extracted textures are NPOT. Pad at
@@ -66,7 +83,13 @@ original gates content behind these, the port unlocks it.
 - **Accelerometer tilt.** The original had a tilt control scheme. `sceMotion`
   could reproduce it on the Vita, but the stick is probably better. Ship the
   stick; revisit if it feels wrong.
-- **Frame pacing.** The Android build was variable-timestep (`dt` straight into
-  the integrator). At a locked 60 Hz the physics will not match Android
-  exactly. If star times turn out unreachable, a fixed 60 Hz timestep with an
-  accumulator is the fix.
+- **Frame pacing.** Physics substeps at a fixed 3 ms as the original did, but
+  the number of substeps still follows the frame time. At a locked 60 Hz this
+  matches Android closely; 1-1 completes in 7.85 s against a 10 s three-star
+  threshold, which is about right.
+- **The broad phase bins each board by the x of its first endpoint only**, so a
+  long board is indexed only where it starts. That is a quirk of the original
+  and is reproduced deliberately. If collisions ever go missing on a long flat
+  run, this is the first place to look.
+- **Star times are not always descending** in the imported worlds (11, 15, 16),
+  which makes the middle tier unreachable there. That is the shipped data.

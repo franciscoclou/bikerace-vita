@@ -63,5 +63,7 @@ void vglSwapBuffers(GLboolean);
 void br_test_gl_reset(void);
 void br_test_gl_transform(float x, float y, float *out_x, float *out_y);
 int  br_test_gl_draw_count(void);
+const unsigned char *br_test_fb(int *w, int *h);
+void br_test_fb_clear(float r, float g, float b);
 
 #endif

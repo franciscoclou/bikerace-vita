@@ -14,13 +14,16 @@ CFLAGS  := -std=c99 -Wall -Wextra -Wno-unused-parameter -O1 -g \
            -DBR_HOST_TEST=1 -I stub -I ../src $(PNG_CFLAGS)
 LDFLAGS := -lm $(PNG_LIBS)
 
-SRC := \
+CORE := \
   ../src/engine/geom.c ../src/engine/body.c ../src/engine/render.c \
   ../src/engine/texture.c \
   ../src/game/board.c ../src/game/level.c ../src/game/camera.c \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/platform/fs.c \
-  stub/gl_stub.c log_stub.c levels_blob_stub.c test_game.c
+  stub/gl_stub.c log_stub.c levels_blob_stub.c
+
+SRC   := $(CORE) test_game.c
+SHOTS := $(CORE) screenshot.c
 
 all: run
 
@@ -30,7 +33,15 @@ run: test_game
 test_game: $(SRC)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
-clean:
-	rm -f test_game
+# Renders a few frames to PNG so the scene can be looked at without a Vita.
+shots: screenshot
+	cd .. && mkdir -p tests/shots && BR_ASSET_ROOT=assets_out tests/screenshot tests/shots
 
-.PHONY: all run clean
+screenshot: $(SHOTS)
+	$(CC) $(CFLAGS) -o $@ $(SHOTS) $(LDFLAGS)
+
+clean:
+	rm -f test_game screenshot
+	rm -rf shots
+
+.PHONY: all run shots clean
