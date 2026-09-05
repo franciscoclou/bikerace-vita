@@ -1,0 +1,29 @@
+# --- build output ---
+build/
+build-*/
+*.velf
+*.self
+*.vpk
+eboot.bin
+param.sfo
+
+# --- derived / regenerable artifacts ---
+decompiled/          # jadx output, regenerate with scripts/decompile.sh
+tools/               # downloaded third-party tools (jadx, vita-parse-core)
+assets_out/          # converted game assets, regenerate with scripts/extract_assets.sh
+
+# --- runtime debugging artifacts ---
+debug.log
+debug-*.log
+psp2core-*.psp2dmp
+dumps/*.psp2dmp
+dumps/*.txt
+
+# --- editor / os ---
+.vscode/
+.idea/
+.cache/
+compile_commands.json
+*.o
+*.a
+.DS_Store
