@@ -33,3 +33,4 @@ compile_commands.json
 
 # --- level dumper build output ---
 tools/leveldump/classes/
+tests/test_game
