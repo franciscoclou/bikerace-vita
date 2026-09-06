@@ -635,6 +635,85 @@ static void test_save(br_game *game)
     remove("assets_out/save.bin");
 }
 
+static void test_gating(br_game *game)
+{
+    br_save save;
+    int per_world = game->pack.worlds[0].level_count;
+    int w, l;
+
+    begin("progression gating");
+
+    br_save_init(&save, game->pack.world_count, per_world);
+
+    /* A fresh game opens on 1-1 and nothing else. */
+    CHECK(br_save_level_unlocked(&save, 0, 0), "1-1 is not open on a fresh save");
+    CHECK(!br_save_level_unlocked(&save, 0, 1), "1-2 is open before 1-1 is done");
+    CHECK(!br_save_level_unlocked(&save, 1, 0), "2-1 is open with no stars");
+
+    /* Finishing a level opens the next. */
+    br_save_record(&save, 0, 0, 3, 10.0f);
+    br_save_unlock_next(&save, 0, 0);
+    CHECK(br_save_level_unlocked(&save, 0, 1), "finishing 1-1 did not open 1-2");
+    CHECK(!br_save_level_unlocked(&save, 0, 2), "finishing 1-1 opened 1-3 as well");
+
+    /* Finishing the last level of a world rolls into the next world, though
+     * the world's own star gate still applies. */
+    br_save_unlock_next(&save, 0, per_world - 1);
+    CHECK(br_save_level(&save, 1, 0)->unlocked,
+          "the last level of world 1 did not open 2-1");
+    CHECK(!br_save_level_unlocked(&save, 1, 0),
+          "2-1 is playable with %d stars, below the %d it needs",
+          br_save_total_stars(&save), br_save_world_requirement(1));
+
+    /* The original's totals, including world 16 costing nothing. */
+    CHECK(br_save_world_requirement(0) == 0, "world 1 asks for stars");
+    CHECK(br_save_world_requirement(1) == 12, "world 2 wants %d stars, not 12",
+          br_save_world_requirement(1));
+    CHECK(br_save_world_requirement(11) == 228, "world 12 wants %d, not 228",
+          br_save_world_requirement(11));
+    CHECK(br_save_world_requirement(15) == 0,
+          "world 16 wants %d stars; it is absent from the original's table and "
+          "so costs nothing", br_save_world_requirement(15));
+
+    /* Earning enough stars opens the world. */
+    for (l = 0; l < per_world; l++)
+        br_save_record(&save, 0, l, 3, 10.0f);
+    CHECK(br_save_total_stars(&save) == per_world * 3, "star total is wrong");
+    CHECK(br_save_world_unlocked(&save, 1),
+          "world 2 is still shut with %d stars", br_save_total_stars(&save));
+
+    /* Unlocking everything lifts both gates and survives a reload. */
+    br_save_unlock_everything(&save);
+    for (w = 0; w < game->pack.world_count; w++)
+        CHECK(br_save_level_unlocked(&save, w, per_world - 1),
+              "world %d's last level is still shut after unlocking everything",
+              w + 1);
+    br_save_flush(&save);
+    {
+        br_save reloaded;
+        br_save_init(&reloaded, game->pack.world_count, per_world);
+        br_save_load(&reloaded);
+        CHECK(br_save_level_unlocked(&reloaded, 18, 7),
+              "unlocking everything did not survive a reload");
+        br_save_free(&reloaded);
+    }
+
+    /* Reset clears progress but leaves preferences alone. */
+    save.sound_on = 0;
+    save.bike_type = 5;
+    br_save_reset_progress(&save);
+    CHECK(br_save_total_stars(&save) == 0, "reset left %d stars",
+          br_save_total_stars(&save));
+    CHECK(br_save_level_unlocked(&save, 0, 0), "reset closed 1-1");
+    CHECK(!br_save_level_unlocked(&save, 0, 1), "reset left 1-2 open");
+    CHECK(!br_save_world_unlocked(&save, 1), "reset left world 2 open");
+    CHECK(save.sound_on == 0, "reset changed the sound setting");
+    CHECK(save.bike_type == 5, "reset changed the chosen bike");
+
+    br_save_free(&save);
+    remove("assets_out/save.bin");
+}
+
 static void test_menu_navigation(br_game *game)
 {
     br_menu menu;
@@ -1229,6 +1308,7 @@ int main(int argc, char **argv)
     test_track_mesh(&game);
     test_fonts();
     test_save(&game);
+    test_gating(&game);
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);

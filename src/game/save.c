@@ -10,7 +10,9 @@
 #define SAVE_MAGIC   "BRSV"
 /* v2 added the sound and music toggles. v1 files still load; they simply
  * predate the settings screen, so both default to on. */
-#define SAVE_VERSION 2
+/* v3 records which levels are open. v1 and v2 files still load; their unlock
+ * state is worked out from which levels have stars. */
+#define SAVE_VERSION 3
 #define HEADER_V1    28
 #define HEADER_V2    36
 #define RECORD_SIZE  8
@@ -33,6 +35,7 @@ int br_save_init(br_save *save, int world_count, int levels_per_world)
         LOGE("save: out of memory for %d entries", world_count * levels_per_world);
         return -1;
     }
+    save->levels[0].unlocked = 1;   /* 1-1 is always open */
     return 0;
 }
 
@@ -94,6 +97,78 @@ int br_save_total_stars(const br_save *save)
     for (i = 0; i < save->world_count * save->levels_per_world; i++)
         total += save->levels[i].stars;
     return total;
+}
+
+/* The original's per-world star totals, by index. */
+static const int s_world_requirement[] = {
+    0, 12, 28, 44, 60, 84, 108, 132, 156, 180, 204, 228,
+    66, 66, 66, 0, 66, 66, 66
+};
+#define REQUIREMENT_COUNT ((int)(sizeof(s_world_requirement) / sizeof(int)))
+
+int br_save_world_requirement(int world)
+{
+    if (world < 0 || world >= REQUIREMENT_COUNT)
+        return 0;
+    return s_world_requirement[world];
+}
+
+int br_save_world_unlocked(const br_save *save, int world)
+{
+    if (save->every_world_open)
+        return 1;
+    return br_save_total_stars(save) >= br_save_world_requirement(world);
+}
+
+int br_save_level_unlocked(const br_save *save, int world, int level)
+{
+    const br_level_progress *entry =
+        br_save_level((br_save *)save, world, level);
+
+    if (!entry)
+        return 0;
+    return entry->unlocked && br_save_world_unlocked(save, world);
+}
+
+void br_save_unlock_next(br_save *save, int world, int level)
+{
+    br_level_progress *entry;
+
+    if (++level >= save->levels_per_world) {
+        level = 0;
+        world++;
+    }
+    entry = br_save_level(save, world, level);
+    if (entry && !entry->unlocked) {
+        entry->unlocked = 1;
+        save->dirty = 1;
+    }
+}
+
+void br_save_reset_progress(br_save *save)
+{
+    /* Progress only: the sound and music settings and the chosen bike are
+     * preferences, not something that was earned. */
+    memset(save->levels, 0,
+           sizeof(br_level_progress) *
+           (size_t)(save->world_count * save->levels_per_world));
+    save->levels[0].unlocked = 1;
+    save->every_world_open = 0;
+    save->last_world = 0;
+    save->last_level = 0;
+    save->dirty = 1;
+    LOGI("save: progress reset");
+}
+
+void br_save_unlock_everything(br_save *save)
+{
+    int i;
+
+    for (i = 0; i < save->world_count * save->levels_per_world; i++)
+        save->levels[i].unlocked = 1;
+    save->every_world_open = 1;
+    save->dirty = 1;
+    LOGI("save: everything unlocked");
 }
 
 static void put_u32(unsigned char *p, unsigned v)
@@ -161,13 +236,14 @@ void br_save_load(br_save *save)
         }
         save->sound_on = get_u32(header + 28) != 0;
         save->music_on = get_u32(header + 32) != 0;
+        save->every_world_open = (int)(get_u32(header + 24) >> 16) & 1;
     }
 
     worlds    = (int)get_u32(header + 8);
     per_world = (int)get_u32(header + 12);
     save->last_world = (int)get_u32(header + 16);
     save->last_level = (int)get_u32(header + 20);
-    save->bike_type  = (int)get_u32(header + 24);
+    save->bike_type  = (int)(get_u32(header + 24) & 0xffff);
 
     /* Read what overlaps: a save from a build with fewer worlds still loads. */
     for (w = 0; w < worlds; w++) {
@@ -182,6 +258,7 @@ void br_save_load(br_save *save)
             entry = br_save_level(save, w, l);
             if (entry) {
                 entry->stars = record[0] > 3 ? 3 : record[0];
+                entry->unlocked = version >= 3 ? record[1] : 0;
                 entry->best_time = get_f32(record + 4);
             }
         }
@@ -189,6 +266,23 @@ void br_save_load(br_save *save)
 
 done:
     fclose(f);
+
+    /* A file from before gating existed has no unlock flags. Work them out
+     * from what was finished, so nobody loses access to where they were. */
+    if (version < 3) {
+        for (w = 0; w < save->world_count; w++) {
+            for (l = 0; l < save->levels_per_world; l++) {
+                br_level_progress *entry = br_save_level(save, w, l);
+                if (entry && entry->stars > 0) {
+                    entry->unlocked = 1;
+                    br_save_unlock_next(save, w, l);
+                }
+            }
+        }
+        save->levels[0].unlocked = 1;
+        save->dirty = 1;
+        LOGI("save: migrated a v%u file -- unlocks derived from stars", version);
+    }
     if (save->last_world < 0 || save->last_world >= save->world_count)
         save->last_world = 0;
     if (save->last_level < 0 || save->last_level >= save->levels_per_world)
@@ -222,7 +316,10 @@ int br_save_flush(br_save *save)
     put_u32(header + 12, (unsigned)save->levels_per_world);
     put_u32(header + 16, (unsigned)save->last_world);
     put_u32(header + 20, (unsigned)save->last_level);
-    put_u32(header + 24, (unsigned)save->bike_type);
+    /* The bike type is small, so the unlock-everything flag rides in its
+     * high bits rather than growing the header again. */
+    put_u32(header + 24, (unsigned)(save->bike_type & 0xffff) |
+                         ((unsigned)(save->every_world_open != 0) << 16));
     put_u32(header + 28, (unsigned)(save->sound_on != 0));
     put_u32(header + 32, (unsigned)(save->music_on != 0));
     if (fwrite(header, 1, sizeof(header), f) != sizeof(header))
@@ -235,6 +332,7 @@ int br_save_flush(br_save *save)
 
             memset(record, 0, sizeof(record));
             record[0] = entry->stars;
+            record[1] = entry->unlocked;
             put_f32(record + 4, entry->best_time);
             if (fwrite(record, 1, RECORD_SIZE, f) != RECORD_SIZE)
                 goto fail;
