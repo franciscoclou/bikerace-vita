@@ -6,6 +6,7 @@
 #include "../platform/fs.h"
 #include "../engine/render.h"
 #include "../platform/log.h"
+#include "theme.h"
 
 static int load_one(br_image *image, br_texture *tex, const char *file)
 {
@@ -42,6 +43,7 @@ int br_ui_art_load(br_ui_art *art)
     missing += load_one(&art->icon_next, &art->t_icon_next, "button_next_default.png") < 0;
     missing += load_one(&art->icon_list, &art->t_icon_list, "button_menu_default.png") < 0;
     missing += load_one(&art->icon_play, &art->t_icon_play, "button_play_final_default.png") < 0;
+    missing += load_one(&art->icon_controls, &art->t_icon_controls, "button_options_default.png") < 0;
     missing += load_one(&art->tiremarks, &art->t_tiremarks, "display_tiremarks.png") < 0;
     missing += load_one(&art->label, &art->t_label, "display_label.png") < 0;
     missing += load_one(&art->lock, &art->t_lock, "lock_level.png") < 0;
@@ -76,6 +78,7 @@ void br_ui_art_free(br_ui_art *art)
     br_image_free(&art->icon_next);
     br_image_free(&art->icon_list);
     br_image_free(&art->icon_play);
+    br_image_free(&art->icon_controls);
     br_image_free(&art->tiremarks);
     br_image_free(&art->label);
     br_image_free(&art->lock);
@@ -95,4 +98,27 @@ void br_ui_tiremarks(const br_ui_art *art, float centre_x, float y,
     br_draw_rect(centre_x - width * 0.5f, y - height * 0.5f,
                  centre_x + width * 0.5f, y + height * 0.5f,
                  &art->t_tiremarks, &fade);
+}
+
+void br_ui_panel(const br_ui_art *art, float x, float y, float w, float h)
+{
+    /* Premultiplied, as the blend mode expects. */
+    static const br_color mud    = { 0.20f, 0.13f, 0.07f, 1.00f };
+    static const br_color lip    = { 0.34f, 0.22f, 0.12f, 1.00f };
+    static const br_color shadow = { 0.0f, 0.0f, 0.0f, 0.35f };
+    const float frame = 9.0f;
+    const float radius = 16.0f;
+
+    br_fill_round_rect(x - frame + 4.0f, y - frame + 6.0f, w + frame * 2.0f,
+                       h + frame * 2.0f, radius, &shadow);
+    br_fill_round_rect(x - frame, y - frame, w + frame * 2.0f, h + frame * 2.0f,
+                       radius, &mud);
+    br_fill_round_rect(x - frame + 3.0f, y - frame + 3.0f,
+                       w + frame * 2.0f - 6.0f, h + frame * 2.0f - 6.0f,
+                       radius - 3.0f, &lip);
+
+    if (br_ui_has(&art->t_panel))
+        br_draw_rect(x, y, x + w, y + h, &art->t_panel, NULL);
+    else
+        br_fill_round_rect(x, y, w, h, 8.0f, &BR_PAPER);
 }

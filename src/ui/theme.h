@@ -11,6 +11,7 @@
 
 static const br_color BR_DIM          = { 0.0f, 0.0f, 0.0f, 0.62f };
 static const br_color BR_SCRIM        = { 0.06f * 0.55f, 0.06f * 0.55f, 0.09f * 0.55f, 0.55f };
+static const br_color BR_PAPER        = { 0.93f, 0.89f, 0.80f, 1.00f };
 static const br_color BR_PANEL        = { 0.10f * 0.94f, 0.08f * 0.94f, 0.06f * 0.94f, 0.94f };
 static const br_color BR_ROW          = { 0.20f * 0.30f, 0.13f * 0.30f, 0.07f * 0.30f, 0.30f };
 static const br_color BR_ROW_SELECTED = { 1.00f, 0.72f, 0.16f, 1.00f };

@@ -135,10 +135,7 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
 static void draw_panel(const br_settings *settings, float x, float y,
                        float w, float h)
 {
-    if (br_ui_has(&settings->art->t_panel))
-        br_draw_rect(x, y, x + w, y + h, &settings->art->t_panel, NULL);
-    else
-        br_fill_round_rect(x, y, w, h, 14.0f, &BR_PANEL);
+    br_ui_panel(settings->art, x, y, w, h);
 }
 
 static void draw_controls(const br_settings *settings, const br_font *display,

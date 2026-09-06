@@ -278,52 +278,37 @@ void br_app_update(br_app *app, const br_input *in, float dt)
 
 /* ----------------------------------------------------------------- draw -- */
 
-/* The clock, the level and the star targets, each on the game's own pale
- * label plate rather than a plain dark bar. */
-static void draw_plate(const br_app *app, float cx, float y, float w, float h)
-{
-    if (br_ui_has(&app->art.t_label))
-        br_draw_rect(cx - w * 0.5f, y, cx + w * 0.5f, y + h, &app->art.t_label, NULL);
-    else
-        br_fill_round_rect(cx - w * 0.5f, y, w, h, h * 0.4f, &BR_PANEL);
-}
-
+/* Straight onto the game, with a dark ring behind each string: a panel here
+ * covers art you have paid for, and the sky in worlds 1 and 7 is bright enough
+ * that plain text would vanish into it. */
 static void draw_race_overlay(br_app *app)
 {
+    static const br_color OUTLINE = { 0.0f, 0.0f, 0.0f, 0.72f };
     static const br_hint waiting[] = { { BR_BUTTON_CROSS, "start" } };
     const br_level *level = app->game.level;
     char text[96];
-    float name_w, target_w;
 
     br_ui_begin();
 
     snprintf(text, sizeof(text), "%d-%d  %s",
              app->game.world_index + 1, app->game.level_index + 1,
              br_world_name(app->game.world_index));
-    name_w = br_font_width(&app->body, text, 24.0f) + 40.0f;
-    draw_plate(app, 20.0f + name_w * 0.5f, 10.0f, name_w, 38.0f);
-    br_font_draw_centered(&app->body, text, 20.0f + name_w * 0.5f, 17.0f, 24.0f,
-                          &BR_INK);
+    br_font_draw_outlined(&app->body, text, 20.0f, 14.0f, 25.0f, -1,
+                          &BR_TEXT, &OUTLINE);
 
     snprintf(text, sizeof(text), "%.2f", app->game.elapsed);
-    draw_plate(app, BR_UI_W * 0.5f, 8.0f, 168.0f, 46.0f);
-    br_font_draw_centered(&app->display, text, BR_UI_W * 0.5f, 14.0f, 34.0f, &BR_INK);
+    br_font_draw_outlined(&app->display, text, BR_UI_W * 0.5f, 10.0f, 38.0f, 0,
+                          &BR_TEXT, &OUTLINE);
 
     snprintf(text, sizeof(text), "%.0f / %.0f / %.0f",
              level->star_times[0], level->star_times[1], level->star_times[2]);
-    target_w = br_font_width(&app->body, text, 22.0f) + 66.0f;
-    draw_plate(app, BR_UI_W - 20.0f - target_w * 0.5f, 10.0f, target_w, 38.0f);
-    if (br_ui_has(&app->art.t_star_on))
-        br_draw_rect(BR_UI_W - 20.0f - target_w + 16.0f, 16.0f,
-                     BR_UI_W - 20.0f - target_w + 42.0f, 42.0f,
-                     &app->art.t_star_on, NULL);
-    br_font_draw_right(&app->body, text, BR_UI_W - 36.0f, 18.0f, 22.0f, &BR_INK);
+    br_font_draw_outlined(&app->body, text, BR_UI_W - 20.0f, 14.0f, 23.0f, 1,
+                          &BR_TEXT, &OUTLINE);
 
     if (app->game.state == BR_STATE_WAITING_START) {
         float w = br_hints_width(waiting, 1, &app->body, 34.0f);
-        draw_plate(app, BR_UI_W * 0.5f, BR_UI_H - 96.0f, w + 60.0f, 52.0f);
         br_hints_draw(waiting, 1, &app->body, (BR_UI_W - w) * 0.5f,
-                      BR_UI_H - 87.0f, 34.0f, &BR_INK);
+                      BR_UI_H - 84.0f, 34.0f, &BR_TEXT);
     }
 }
 

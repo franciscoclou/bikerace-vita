@@ -38,4 +38,11 @@ void  br_font_draw_centered(const br_font *font, const char *text, float cx, flo
 void  br_font_draw_right(const br_font *font, const char *text, float right, float y,
                          float px, const br_color *color);
 
+/* Text with a dark ring behind it, for drawing straight onto the game where
+ * the background can be bright sky or pale sand. `align` is -1 left, 0 centre,
+ * 1 right, and x is the corresponding edge. */
+void  br_font_draw_outlined(const br_font *font, const char *text, float x, float y,
+                            float px, int align, const br_color *color,
+                            const br_color *outline);
+
 #endif /* BR_FONT_H */

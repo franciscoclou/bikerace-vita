@@ -23,9 +23,10 @@ typedef struct {
 
     /* The game's own round buttons, used for the choices after a run and in
      * the pause screen, plus the dirt-track dressing. */
-    br_image   icon_retry, icon_next, icon_list, icon_play;
+    br_image   icon_retry, icon_next, icon_list, icon_play, icon_controls;
     br_image   tiremarks, label, lock;
     br_texture t_icon_retry, t_icon_next, t_icon_list, t_icon_play;
+    br_texture t_icon_controls;
     br_texture t_tiremarks, t_label, t_lock;
 
     /* Wheels, indexed by br_wheel_kind. Cropped out of a world atlas by
@@ -44,6 +45,10 @@ void br_ui_art_free(br_ui_art *art);
  * with it. It is the game's own motif and does the job a rule would. */
 void br_ui_tiremarks(const br_ui_art *art, float centre_x, float y,
                      float width, float height);
+
+/* A modal panel: the game's paper art set into a mud-brown frame, with a
+ * darker lip under it. Plain paper on its own read as a flat rectangle. */
+void br_ui_panel(const br_ui_art *art, float x, float y, float w, float h);
 
 static inline int br_ui_has(const br_texture *tex)
 {
