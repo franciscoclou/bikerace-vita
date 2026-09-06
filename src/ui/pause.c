@@ -20,21 +20,25 @@ void br_pause_init(br_pause *pause, const br_ui_art *art)
 {
     memset(pause, 0, sizeof(*pause));
     pause->art = art;
+    (void)art;
+}
+
+void br_pause_open(br_pause *pause, int ghost, int ghost_on)
+{
+    const br_ui_art *art = pause->art;
+
+    pause->showing_controls = 0;
+    pause->has_ghost = ghost;
+
     br_iconbar_init(&pause->bar, BR_UI_W * 0.5f, PANEL_Y + 132.0f,
                     ICON_SIZE, ICON_GAP);
     br_iconbar_add(&pause->bar, &art->t_icon_play, "Resume");
     br_iconbar_add(&pause->bar, &art->t_icon_retry, "Restart");
     br_iconbar_add(&pause->bar, &art->t_icon_controls, "Controls");
+    if (ghost)
+        br_iconbar_add(&pause->bar, ghost_on ? &art->t_toggle_on
+                                             : &art->t_toggle_off, "Ghost");
     br_iconbar_add(&pause->bar, &art->t_icon_list, "Levels");
-}
-
-void br_pause_open(br_pause *pause)
-{
-    pause->showing_controls = 0;
-    pause->bar.selected = 0;
-    pause->bar.held_x = 0;
-    pause->bar.repeat_delay = 0.0f;
-    pause->bar.touch_target = BR_ICON_NONE;
 }
 
 br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
@@ -53,12 +57,17 @@ br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
     if (in->back_pressed || in->pause_pressed)
         return BR_PAUSE_RESUME;
 
+    if (chosen < 0)
+        return BR_PAUSE_NOTHING;
     switch (chosen) {
-    case 0:  return BR_PAUSE_RESUME;
-    case 1:  return BR_PAUSE_RESTART;
-    case 2:  pause->showing_controls = 1; return BR_PAUSE_NOTHING;
-    case 3:  return BR_PAUSE_MENU;
-    default: return BR_PAUSE_NOTHING;
+    case 0: return BR_PAUSE_RESUME;
+    case 1: return BR_PAUSE_RESTART;
+    case 2: pause->showing_controls = 1; return BR_PAUSE_NOTHING;
+    default:
+        /* The ghost switch only exists when there is a run to hide. */
+        if (pause->has_ghost && chosen == 3)
+            return BR_PAUSE_TOGGLE_GHOST;
+        return BR_PAUSE_MENU;
     }
 }
 

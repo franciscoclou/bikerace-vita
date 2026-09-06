@@ -133,9 +133,19 @@ void br_iconbar_draw(const br_iconbar *bar, const br_font *font, float label_siz
         gx = x - (gs - size) * 0.5f;
         gy = y - (gs - size) * 0.5f;
 
-        if (bar->icons[i] && br_ui_has(bar->icons[i]))
-            br_draw_rect(gx, gy, gx + gs, gy + gs, bar->icons[i], NULL);
-        else
+        if (bar->icons[i] && br_ui_has(bar->icons[i])) {
+            const br_image *img = bar->icons[i]->image;
+            float fw = gs, fh = gs;
+
+            if (img->width > 0 && img->height > 0) {
+                float aspect = (float)img->width / (float)img->height;
+                if (aspect > 1.0f) fh = gs / aspect;
+                else               fw = gs * aspect;
+            }
+            br_draw_rect(gx + (gs - fw) * 0.5f, gy + (gs - fh) * 0.5f,
+                         gx + (gs + fw) * 0.5f, gy + (gs + fh) * 0.5f,
+                         bar->icons[i], NULL);
+        } else
             br_fill_round_rect(gx, gy, gs, gs, gs * 0.22f,
                                selected ? &BR_ROW_SELECTED : &BR_ROW);
 

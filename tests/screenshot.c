@@ -60,8 +60,13 @@ static void race_for(br_app *app, float seconds)
     int i;
 
     memset(&in, 0, sizeof(in));
-    in.accelerate = 1;
     app->game.state = BR_STATE_RUNNING;
+
+    /* One frame with the throttle shut clears the lock a fresh run starts
+     * with. Holding Cross from the first frame leaves it latched, and the bike
+     * simply never moves -- which the camera hides, since it follows the bike. */
+    br_app_update(app, &in, 1.0f / 60.0f);
+    in.accelerate = 1;
 
     for (i = 0; i < (int)(seconds * 60.0f); i++) {
         float want = br_bike_angle_deg(&app->game.bike) / 45.0f;
@@ -102,6 +107,11 @@ int main(int argc, char **argv)
         printf("app init failed\n");
         return 1;
     }
+
+    /* These shots are about how things draw, not about progression, and the
+     * gate would otherwise refuse every level but 1-1. test_game covers the
+     * gating for real. */
+    br_save_unlock_everything(&app.save);
 
     app.screen = BR_APP_START;
     shoot(&app, dir, "start", 0);
@@ -162,9 +172,30 @@ int main(int argc, char **argv)
     race(&app, dir, "race_w01_l1", 0, 0, 2.0f);
     race(&app, dir, "race_w16_l1", 15, 0, 3.0f);
 
+    /* A ghost of the run just recorded, replayed a second behind. */
+    race(&app, dir, "race_w01_l2", 0, 1, 3.0f);
+    {
+        static br_ghost recorded;
+
+        recorded.samples = app.game.recorder.samples;
+        recorded.count = app.game.recorder.count;
+        recorded.bike = BR_BIKE_REGULAR;
+        recorded.time = app.game.elapsed;
+        if (recorded.count > 4) {
+            app.game.ghost = &recorded;
+            app.game.ghost_enabled = 1;
+            br_scene_use_ghost(&app.game.scene, (int)recorded.bike);
+            app.game.elapsed -= 0.8f;      /* let the ghost lead */
+            shoot(&app, dir, "race_ghost", 3000);
+            app.game.elapsed += 0.8f;
+            app.game.ghost = NULL;
+            br_scene_use_ghost(&app.game.scene, -1);
+        }
+    }
+
     /* Pause and the end-of-run panel sit on top of the frozen race. */
     race(&app, dir, "race_w01_l3", 0, 2, 2.5f);
-    br_pause_open(&app.pause);
+    br_pause_open(&app.pause, 1, 1);
     app.screen = BR_APP_PAUSED;
     shoot(&app, dir, "pause", 2500);
 

@@ -5,6 +5,7 @@
 #include "audio.h"
 #include "bike.h"
 #include "camera.h"
+#include "ghost.h"
 #include "level.h"
 #include "scene.h"
 
@@ -48,6 +49,12 @@ typedef struct {
      * button is let go, so the press that dismissed a menu does not also open
      * it and start the clock. */
     int           throttle_locked;
+
+    /* Your best run on this level, played back beside you, and the recording
+     * of the run in progress. */
+    br_ghost_recorder recorder;
+    const br_ghost   *ghost;
+    int               ghost_enabled;
 
     int          *nearby;         /* scratch for broad-phase results */
     int           nearby_max;

@@ -50,6 +50,9 @@ int br_app_init(br_app *app)
         return -1;
     br_save_load(&app->save);
 
+    app->ghosts = br_ghost_store_open(app->game.pack.world_count,
+                                      app->game.pack.worlds[0].level_count);
+
     br_ui_art_load(&app->art);
     br_menu_init(&app->menu, &app->art);
     br_pause_init(&app->pause, &app->art);
@@ -75,6 +78,8 @@ int br_app_init(br_app *app)
 void br_app_free(br_app *app)
 {
     br_save_flush(&app->save);
+    br_ghost_store_flush(app->ghosts);
+    br_ghost_store_close(app->ghosts);
     br_menu_free(&app->menu);
     br_ui_art_free(&app->art);
     br_save_free(&app->save);
@@ -113,6 +118,13 @@ static void begin_race(br_app *app, int world, int level)
         return;
     }
     br_save_remember_place(&app->save, world, level);
+
+    /* Your best run on this level rides along beside you. */
+    app->game.ghost = br_ghost_get(app->ghosts, world, level);
+    app->game.ghost_enabled = app->game.ghost != NULL;
+    br_scene_use_ghost(&app->game.scene,
+                       app->game.ghost ? (int)app->game.ghost->bike : -1);
+
     br_game_audio_music(&app->game.audio, 0);
     app->last_race_state = app->game.state;
     resume_race(app);
@@ -152,6 +164,19 @@ static void show_result(br_app *app)
                        app->game.stars, app->game.elapsed);
         br_save_unlock_next(&app->save, app->game.world_index, app->game.level_index);
         br_save_flush(&app->save);
+
+        /* Keep the run only when it beat what was there. A run too long to
+         * record simply leaves the old ghost alone. */
+        if (!app->game.recorder.overflowed && app->game.recorder.count > 1) {
+            br_ghost run;
+            run.samples = app->game.recorder.samples;
+            run.count = app->game.recorder.count;
+            run.bike = app->game.bike_type;
+            run.time = app->game.elapsed;
+            br_ghost_put(app->ghosts, app->game.world_index,
+                         app->game.level_index, &run);
+            br_ghost_store_flush(app->ghosts);
+        }
     }
 
     /* Only offer "next" when there is one and it can be played: the level
@@ -222,7 +247,8 @@ static void update_race(br_app *app, const br_input *in, float dt)
 
     if (in->pause_pressed) {
         br_game_audio_silence(&app->game.audio);
-        br_pause_open(&app->pause);
+        br_pause_open(&app->pause, app->game.ghost != NULL,
+                      app->game.ghost_enabled);
         app->screen = BR_APP_PAUSED;
         return;
     }
@@ -255,6 +281,11 @@ static void update_paused(br_app *app, const br_input *in, float dt)
     case BR_PAUSE_MENU:
         br_menu_open_levels(&app->menu, app->game.world_index);
         to_menu(app);
+        break;
+    case BR_PAUSE_TOGGLE_GHOST:
+        app->game.ghost_enabled = !app->game.ghost_enabled;
+        br_pause_open(&app->pause, app->game.ghost != NULL,
+                      app->game.ghost_enabled);
         break;
     case BR_PAUSE_NOTHING:
         break;
@@ -370,8 +401,20 @@ void br_app_draw(br_app *app, unsigned time_ms)
         break;
 
     default:
-        br_scene_draw(&app->game.scene, app->game.level, &app->game.camera,
-                      &app->game.bike, time_ms);
+        {
+            br_ghost_pose pose;
+
+            memset(&pose, 0, sizeof(pose));
+            if (app->game.ghost && app->game.ghost_enabled &&
+                app->screen == BR_APP_RACING) {
+                pose.active = br_ghost_pose_at(app->game.ghost, app->game.elapsed,
+                                               &pose.pos, &pose.angle_deg) ||
+                              app->game.elapsed <= app->game.ghost->time;
+                pose.bike = app->game.ghost->bike;
+            }
+            br_scene_draw(&app->game.scene, app->game.level, &app->game.camera,
+                          &app->game.bike, &pose, time_ms);
+        }
         draw_race_overlay(app);
         level_caption(app, caption, sizeof(caption));
         if (app->screen == BR_APP_PAUSED)

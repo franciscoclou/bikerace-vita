@@ -227,6 +227,12 @@ finish line, and checks the camera and broad-phase invariants.
 small software rasteriser in the stub, so the scene transforms, atlas regions
 and draw order can be looked at directly.
 
+Anything that drives a race in the harness must **release the throttle for one
+frame** before holding it, exactly as a player does. A run that holds Cross
+from the first frame leaves the start-of-run latch engaged and the bike never
+moves -- and because the camera follows the bike, the frame still looks
+plausible. That silently invalidated every race screenshot once.
+
 Run both before building a VPK. They are much faster than a flash-and-look
 cycle and they catch the bugs a UDP log cannot explain.
 
@@ -293,6 +299,18 @@ that defaults to "no". Reset clears stars, times and locks but leaves the sound
 and music settings and the chosen bike alone — those are preferences, not
 something that was earned. Saves written before gating existed have their
 unlocks worked out from which levels have stars.
+
+## Ghosts
+
+Your best run on a level replays beside you, faded. Only the rider's head
+position and the frame angle are recorded, at 20 Hz; the wheels are derived
+from those exactly as the original derived them for a replay bike, so a ghost
+needs no physics of its own. Runs past 80 seconds are not recorded rather than
+truncated.
+
+Ghosts live in `ux0:data/bikerace/ghosts.bin`, apart from `save.bin`, so a
+damaged ghost can never cost anyone their progress. Pause offers a switch to
+hide it, and only when the level has one.
 
 ## Level data
 
