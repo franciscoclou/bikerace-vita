@@ -85,16 +85,9 @@ void br_start_draw(const br_start *start, const br_font *display,
 
     br_start_draw_backdrop(start, display, body);
 
-    br_option_list_draw(&start->list, body, 28.0f, &BR_PANEL, &BR_ROW_SELECTED,
-                        &BR_TEXT);
-    /* The selected row is bright, so its label needs the dark ink instead. */
-    {
-        float x, y, w, h;
-        if (br_option_list_rect(&start->list, start->list.selected, &x, &y, &w, &h))
-            br_font_draw_centered(body, start->list.labels[start->list.selected],
-                                  x + w * 0.5f, y + (h - 28.0f) * 0.5f, 28.0f,
-                                  &BR_INK);
-    }
+    br_option_list_draw(&start->list, body, 28.0f,
+                        &start->art->t_level_tile, &start->art->t_level_tile_active,
+                        &BR_PANEL, &BR_ROW_SELECTED, &BR_TEXT, &BR_TEXT);
 
     br_hints_draw(hints, 3, body, OPTION_X, BR_UI_H - 42.0f, 26.0f, &BR_TEXT);
 }

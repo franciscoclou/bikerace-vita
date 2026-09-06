@@ -2,6 +2,7 @@
 #define BR_OPTION_LIST_H
 
 #include "../platform/input.h"
+#include "../engine/texture.h"
 #include "font.h"
 
 /* A vertical list of rows driven by the d-pad, the stick or touch.
@@ -34,9 +35,14 @@ void br_option_list_add(br_option_list *list, const char *label, const char *val
 
 /* Returns the chosen row, or BR_OPTION_NONE. */
 int  br_option_list_update(br_option_list *list, const br_input *in, float dt);
+/* `plate` and `plate_selected` are the artwork behind a row -- the game's
+ * level tile, nine-sliced -- and may be NULL, in which case the row falls back
+ * to a plain rounded rectangle in `row` / `row_selected`. */
 void br_option_list_draw(const br_option_list *list, const br_font *font,
-                         float text_size, const br_color *row,
-                         const br_color *row_selected, const br_color *ink);
+                         float text_size,
+                         const br_texture *plate, const br_texture *plate_selected,
+                         const br_color *row, const br_color *row_selected,
+                         const br_color *ink, const br_color *ink_selected);
 int  br_option_list_rect(const br_option_list *list, int index,
                          float *x, float *y, float *w, float *h);
 

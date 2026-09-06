@@ -16,6 +16,8 @@ static const br_color BR_ROW          = { 0.20f * 0.30f, 0.13f * 0.30f, 0.07f * 
 static const br_color BR_ROW_SELECTED = { 1.00f, 0.72f, 0.16f, 1.00f };
 static const br_color BR_HIGHLIGHT    = { 1.00f, 0.72f, 0.16f, 1.00f };
 static const br_color BR_TILE_SEL     = { 1.00f, 0.74f, 0.34f, 1.00f };
+/* Dims a shut tile without hiding what is on it. */
+static const br_color BR_LOCKED       = { 0.42f, 0.40f, 0.38f, 1.00f };
 static const br_color BR_INK          = { 0.28f, 0.15f, 0.06f, 1.00f };
 static const br_color BR_TEXT         = { 0.99f, 0.97f, 0.92f, 1.00f };
 static const br_color BR_TEXT_DIM     = { 0.74f, 0.71f, 0.66f, 1.00f };

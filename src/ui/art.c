@@ -44,6 +44,7 @@ int br_ui_art_load(br_ui_art *art)
     missing += load_one(&art->icon_play, &art->t_icon_play, "button_play_final_default.png") < 0;
     missing += load_one(&art->tiremarks, &art->t_tiremarks, "display_tiremarks.png") < 0;
     missing += load_one(&art->label, &art->t_label, "display_label.png") < 0;
+    missing += load_one(&art->lock, &art->t_lock, "lock_level.png") < 0;
     missing += load_one(&art->wheel[BR_WHEEL_STANDARD],  &art->t_wheel[BR_WHEEL_STANDARD],  "wheel.png") < 0;
     missing += load_one(&art->wheel[BR_WHEEL_ULTRA],     &art->t_wheel[BR_WHEEL_ULTRA],     "wheel_ultra.png") < 0;
     missing += load_one(&art->wheel[BR_WHEEL_HALLOWEEN], &art->t_wheel[BR_WHEEL_HALLOWEEN], "wheel_halloween.png") < 0;
@@ -77,6 +78,7 @@ void br_ui_art_free(br_ui_art *art)
     br_image_free(&art->icon_play);
     br_image_free(&art->tiremarks);
     br_image_free(&art->label);
+    br_image_free(&art->lock);
     for (i = 0; i < 4; i++)
         br_image_free(&art->wheel[i]);
     memset(art, 0, sizeof(*art));

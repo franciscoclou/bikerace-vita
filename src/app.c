@@ -147,8 +147,7 @@ static void update_start(br_app *app, const br_input *in, float dt)
         app->screen = BR_APP_MENU;
         break;
     case BR_START_SETTINGS:
-        br_settings_open(&app->settings, &app->save.sound_on, &app->save.music_on,
-                         &app->save.dirty);
+        br_settings_open(&app->settings, &app->save);
         app->screen = BR_APP_SETTINGS;
         break;
     case BR_START_EXIT:
@@ -174,7 +173,7 @@ static void update_settings(br_app *app, const br_input *in, float dt)
 
 static void update_menu(br_app *app, const br_input *in, float dt)
 {
-    switch (br_menu_update(&app->menu, in, dt, &app->game.pack)) {
+    switch (br_menu_update(&app->menu, in, dt, &app->game.pack, &app->save)) {
     case BR_MENU_PLAY:
         begin_race(app, app->menu.world, app->menu.level);
         break;
