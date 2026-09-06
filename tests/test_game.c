@@ -17,6 +17,7 @@
 #include "../src/ui/menu.h"
 #include "../src/ui/result.h"
 #include "../src/ui/settings.h"
+#include "../src/platform/mixer.h"
 #include "../src/ui/start.h"
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
@@ -1090,6 +1091,94 @@ static void test_app_opens_audio(void)
     br_app_free(&app);
 }
 
+/* A sound of `seconds` at 22050 Hz, filled so every frame is identifiable. */
+static void make_tone(br_sound *sound, float seconds)
+{
+    int i;
+
+    sound->sample_rate = 22050;
+    sound->frame_count = (int)(seconds * 22050.0f);
+    sound->samples = malloc((size_t)sound->frame_count * sizeof(short));
+    for (i = 0; i < sound->frame_count; i++)
+        sound->samples[i] = (short)(1000 + (i % 100));
+}
+
+static void test_mixer_long_sounds(void)
+{
+    const int rate = 48000;
+    const int grain = 1024;
+    short out[2048 * 2];
+    br_sound tone;
+    br_voice voice;
+    int grains, played;
+
+    begin("long sounds play to the end");
+
+    /* Four seconds is past what a single 16.16 position can address, which is
+     * what made the win sting and the menu music restart for ever. */
+    make_tone(&tone, 4.0f);
+
+    br_mixer_reset();
+    voice = br_mixer_play(&tone, 1.0f, 0, rate);
+    CHECK(voice != 0, "the mixer refused a four-second sound");
+
+    /* It must finish. Render six seconds' worth and watch it stop. */
+    played = 0;
+    for (grains = 0; grains < (6 * rate) / grain; grains++) {
+        if (!br_mixer_playing(voice))
+            break;
+        br_mixer_render(out, grain);
+        played += grain;
+    }
+    CHECK(!br_mixer_playing(voice),
+          "a four-second sound was still going after six seconds -- it cannot "
+          "reach its own end");
+
+    {
+        float seconds = (float)played / (float)rate;
+        CHECK(seconds > 3.5f && seconds < 4.5f,
+              "the four-second sound ran for %.2fs", seconds);
+        printf("     4.00s sound stopped after %.2fs\n", seconds);
+    }
+
+    /* Looping must wrap rather than stop, and keep producing sound. */
+    br_mixer_reset();
+    voice = br_mixer_play(&tone, 1.0f, 1, rate);
+    for (grains = 0; grains < (10 * rate) / grain; grains++)
+        br_mixer_render(out, grain);
+    CHECK(br_mixer_playing(voice), "a looping sound stopped on its own");
+    {
+        int i, silent = 1;
+        for (i = 0; i < grain * 2; i++)
+            if (out[i] != 0)
+                silent = 0;
+        CHECK(!silent, "a looping sound went silent after ten seconds");
+    }
+
+    free(tone.samples);
+
+    /* And a three-minute track survives past the old ceiling. */
+    make_tone(&tone, 200.0f);
+    br_mixer_reset();
+    voice = br_mixer_play(&tone, 1.0f, 1, rate);
+    for (grains = 0; grains < (30 * rate) / grain; grains++)
+        br_mixer_render(out, grain);
+    CHECK(br_mixer_playing(voice), "a long track stopped after thirty seconds");
+    {
+        /* Thirty seconds in it must be past the first three seconds, not
+         * back at the beginning. */
+        int i, matches_start = 1;
+        for (i = 0; i < 64; i++)
+            if (out[i * 2] != tone.samples[i])
+                matches_start = 0;
+        CHECK(!matches_start,
+              "thirty seconds into a long track it is playing the opening "
+              "again -- the position wrapped");
+    }
+    free(tone.samples);
+    br_mixer_reset();
+}
+
 static void test_world_names(br_game *game)
 {
     int i;
@@ -1142,6 +1231,7 @@ int main(int argc, char **argv)
     test_settings_toggles();
     test_result_actions();
     test_start_screen();
+    test_mixer_long_sounds();
     test_engine_notes();
     test_impact_sound();
     test_bike_sprite_region();

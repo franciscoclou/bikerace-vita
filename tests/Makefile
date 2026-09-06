@@ -20,7 +20,7 @@ CORE := \
   ../src/game/board.c ../src/game/level.c ../src/game/camera.c \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/game/save.c ../src/game/audio.c \
-  ../src/platform/fs.c ../src/platform/wav.c \
+  ../src/platform/fs.c ../src/platform/wav.c ../src/platform/mixer.c \
   ../src/ui/preview.c ../src/ui/art.c ../src/ui/glyphs.c \
   ../src/ui/optionlist.c ../src/ui/menu.c ../src/ui/pause.c \
   ../src/ui/start.c ../src/ui/settings.c ../src/ui/result.c ../src/app.c \
