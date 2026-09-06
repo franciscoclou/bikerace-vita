@@ -60,8 +60,7 @@ for f in fundo.png logo.png button_background_default.png \
          pause_fundo.png start_screen.png result_window.png \
          button_retry_default.png button_next_default.png \
          button_menu_default.png button_play_final_default.png \
-         button_options_default.png button_ok_default.png \
-         display_tiremarks.png display_label.png placa_start.png; do
+         display_tiremarks.png display_label.png; do
   cp "apk/res/drawable-xhdpi/$f" "$OUT/ui/$f"
 done
 # The bike list shows wheels, but wheels live inside the world atlases. Crop
