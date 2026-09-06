@@ -14,17 +14,21 @@ typedef enum {
     BR_PAUSE_NOTHING = 0,
     BR_PAUSE_RESUME,
     BR_PAUSE_RESTART,
-    BR_PAUSE_MENU
+    BR_PAUSE_MENU,
+    BR_PAUSE_TOGGLE_GHOST
 } br_pause_action;
 
 typedef struct {
     const br_ui_art *art;
     br_iconbar       bar;
     int              showing_controls;
+    int              has_ghost;
 } br_pause;
 
 void br_pause_init(br_pause *pause, const br_ui_art *art);
-void br_pause_open(br_pause *pause);
+/* `ghost` says whether this level has a recorded run; without one there is
+ * nothing to switch off, so the button is not offered at all. */
+void br_pause_open(br_pause *pause, int ghost, int ghost_on);
 
 br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt);
 void br_pause_draw(const br_pause *pause, const br_font *display,

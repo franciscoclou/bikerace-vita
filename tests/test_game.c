@@ -11,6 +11,7 @@
 
 #include "../src/engine/render.h"
 #include "../src/game/audio.h"
+#include "../src/game/ghost.h"
 #include "../src/game/save.h"
 #include "../src/ui/font.h"
 #include "../src/app.h"
@@ -798,6 +799,91 @@ static void test_gating_is_enforced(void)
     remove("assets_out/save.bin");
 }
 
+static void test_ghost(br_game *game)
+{
+    br_ghost_recorder rec;
+    br_ghost_store *store;
+    br_ghost run;
+    vec2 head, pos;
+    float angle;
+    int i;
+
+    begin("ghost recording and playback");
+
+    /* Record a straight line at a known speed. */
+    br_ghost_record_begin(&rec);
+    for (i = 0; i < 120; i++) {
+        float t = (float)i / 60.0f;
+        v2_set(&head, t * 2.0f, 1.0f);
+        br_ghost_record_tick(&rec, t, &head, t * 10.0f);
+    }
+    CHECK(rec.count == 40, "two seconds at %d Hz gave %d samples, want 40",
+          BR_GHOST_HZ, rec.count);
+    CHECK(!rec.overflowed, "two seconds overflowed the recorder");
+
+    run.samples = rec.samples;
+    run.count = rec.count;
+    run.bike = BR_BIKE_ULTRA;
+    run.time = 2.0f;
+
+    /* Playback lands between samples rather than snapping to them. */
+    CHECK(br_ghost_pose_at(&run, 0.5f, &pos, &angle), "playback ended early");
+    CHECK(fabsf(pos.x - 1.0f) < 0.05f, "at 0.5s the ghost is at x=%.3f, want 1.0",
+          pos.x);
+    CHECK(fabsf(angle - 5.0f) < 0.4f, "at 0.5s the angle is %.2f, want 5.0", angle);
+    CHECK(!br_ghost_pose_at(&run, 5.0f, &pos, &angle),
+          "playback past the end did not report finished");
+
+    /* A run too long to hold leaves the recorder marked rather than truncating
+     * silently. */
+    br_ghost_record_begin(&rec);
+    for (i = 0; i < BR_GHOST_MAX_SAMPLES + 200; i++)
+        br_ghost_record_tick(&rec, (float)i / (float)BR_GHOST_HZ, &head, 0.0f);
+    CHECK(rec.overflowed, "a run past the sample limit was not flagged");
+    CHECK(rec.count == BR_GHOST_MAX_SAMPLES, "the recorder wrote %d samples, "
+          "past its %d limit", rec.count, BR_GHOST_MAX_SAMPLES);
+
+    /* Store: a better run replaces, a worse one does not, and it survives a
+     * round trip through the file. */
+    remove("assets_out/ghosts.bin");
+    store = br_ghost_store_open(game->pack.world_count,
+                                game->pack.worlds[0].level_count);
+    CHECK(store != NULL, "could not open the ghost store");
+    CHECK(br_ghost_get(store, 0, 0) == NULL, "a fresh store already has a ghost");
+
+    br_ghost_put(store, 0, 0, &run);
+    CHECK(br_ghost_get(store, 0, 0) != NULL, "the run was not kept");
+    CHECK(br_ghost_get(store, 0, 0)->time == 2.0f, "the wrong time was kept");
+
+    run.time = 3.0f;
+    br_ghost_put(store, 0, 0, &run);
+    CHECK(br_ghost_get(store, 0, 0)->time == 2.0f,
+          "a slower run replaced the best one");
+
+    run.time = 1.5f;
+    br_ghost_put(store, 0, 0, &run);
+    CHECK(br_ghost_get(store, 0, 0)->time == 1.5f, "a faster run was not kept");
+
+    br_ghost_store_flush(store);
+    br_ghost_store_close(store);
+
+    store = br_ghost_store_open(game->pack.world_count,
+                                game->pack.worlds[0].level_count);
+    {
+        const br_ghost *loaded = br_ghost_get(store, 0, 0);
+        CHECK(loaded != NULL, "the ghost did not survive a reload");
+        if (loaded) {
+            CHECK(loaded->count == 40, "reloaded %d samples, want 40", loaded->count);
+            CHECK(loaded->bike == BR_BIKE_ULTRA, "the recorded bike was lost");
+            CHECK(fabsf(loaded->time - 1.5f) < 0.001f, "the recorded time was lost");
+            CHECK(fabsf(loaded->samples[20].pos.x - run.samples[20].pos.x) < 0.001f,
+                  "the sample positions did not survive");
+        }
+    }
+    br_ghost_store_close(store);
+    remove("assets_out/ghosts.bin");
+}
+
 static void test_menu_navigation(br_game *game)
 {
     br_menu menu;
@@ -1449,6 +1535,7 @@ int main(int argc, char **argv)
     test_track_mesh(&game);
     test_fonts();
     test_save(&game);
+    test_ghost(&game);
     test_gating(&game);
     test_gating_is_enforced();
     test_menu_navigation(&game);

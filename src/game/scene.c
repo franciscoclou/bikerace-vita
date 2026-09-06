@@ -66,6 +66,7 @@ int br_scene_init(br_scene *scene)
     memset(scene, 0, sizeof(*scene));
     scene->atlas_index = -1;
     scene->bike_type = BR_BIKE_TYPE_COUNT;
+    scene->ghost_bike = -1;      /* zero would read as the first bike type */
     return 0;
 }
 
@@ -75,6 +76,7 @@ void br_scene_free(br_scene *scene)
         br_mesh_free(&scene->track_mesh);
     br_image_free(&scene->atlas);
     br_image_free(&scene->bike_image);
+    br_image_free(&scene->ghost_image);
     br_image_free(&scene->wheel_image);
     memset(scene, 0, sizeof(*scene));
 }
@@ -169,6 +171,33 @@ int br_scene_use(br_scene *scene, int atlas_index, br_bike_type bike)
     }
 
     bind_atlas_regions(scene);
+    return 0;
+}
+
+int br_scene_use_ghost(br_scene *scene, int bike)
+{
+    char path[256];
+
+    if (bike == scene->ghost_bike)
+        return 0;
+
+    br_image_free(&scene->ghost_image);
+    memset(&scene->ghost_sprite, 0, sizeof(scene->ghost_sprite));
+    scene->ghost_bike = -1;
+
+    if (bike < 0 || bike >= BR_BIKE_TYPE_COUNT)
+        return 0;
+
+    snprintf(path, sizeof(path), "%s/textures/%s",
+             br_asset_root(), br_bike_def_for((br_bike_type)bike)->sprite);
+    if (br_image_load(&scene->ghost_image, path) < 0)
+        return -1;
+    {
+        const float *uv = br_bike_def_for((br_bike_type)bike)->sprite_uv;
+        scene->ghost_sprite = br_texture_region(&scene->ghost_image,
+                                                uv[0], uv[1], uv[2], uv[3]);
+    }
+    scene->ghost_bike = bike;
     return 0;
 }
 
@@ -283,8 +312,47 @@ static void draw_bike(const br_scene *scene, const br_bike *bike)
     br_pop();
 }
 
+/* Places a bike from a pose rather than from its bodies, the way the original
+ * placed a replay bike: the wheels hang 0.32 below the head, offset along the
+ * frame, and the whole thing turns with the frame angle. */
+static void draw_ghost(br_scene *scene, const br_ghost_pose *ghost)
+{
+    /* Premultiplied: a little over a third opacity, so it reads as a trace
+     * without competing with the bike you are riding. */
+    static const br_color FADE = { 0.38f, 0.38f, 0.38f, 0.38f };
+    const br_bike_def *def = br_bike_def_for(ghost->bike);
+    const br_texture *body = &scene->ghost_sprite;
+    float radians = ghost->angle_deg / 180.0f * 3.1415927f;
+    vec2 offset;
+    int i;
+
+    if (!body->image)
+        return;
+
+    for (i = 0; i < 2; i++) {
+        v2_set(&offset, i == 0 ? def->front_x : def->rear_x, -0.32f);
+        v2_add(v2_rotate(&offset, radians), &ghost->pos);
+        br_push();
+        br_translate(offset.x, offset.y);
+        br_draw_sprite(&scene->wheel, WHEEL_WIDTH, WHEEL_WIDTH, &FADE);
+        br_pop();
+    }
+
+    v2_set(&offset, 0.0f, RIDER_DROP);
+    v2_add(&offset, &def->sprite_offset);
+    v2_add(v2_rotate(&offset, radians), &ghost->pos);
+
+    br_push();
+    br_translate(offset.x, offset.y);
+    br_rotate_deg(ghost->angle_deg);
+    br_draw_sprite(body, def->sprite_width,
+                   br_texture_fit_h(body, def->sprite_width), &FADE);
+    br_pop();
+}
+
 void br_scene_draw(br_scene *scene, const br_level *level,
-                   const br_camera *cam, const br_bike *bike, unsigned time_ms)
+                   const br_camera *cam, const br_bike *bike,
+                   const br_ghost_pose *ghost, unsigned time_ms)
 {
     br_identity();
 
@@ -299,5 +367,8 @@ void br_scene_draw(br_scene *scene, const br_level *level,
     if (scene->has_track)
         br_draw_mesh(&scene->track_mesh);
     draw_finish(scene, level, time_ms);
+    /* Behind the live bike, so it can never hide it. */
+    if (ghost && ghost->active)
+        draw_ghost(scene, ghost);
     draw_bike(scene, bike);
 }

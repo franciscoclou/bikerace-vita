@@ -82,6 +82,7 @@ static void reset_run(br_game *game)
     game->brake_held = 0.0f;
     game->reversing  = 0;
     game->throttle_locked = 1;
+    br_ghost_record_begin(&game->recorder);
     br_game_audio_silence(&game->audio);
 }
 
@@ -320,6 +321,10 @@ void br_game_update(br_game *game, const br_input *in, float dt)
             if (lean < -LEAN_LIMIT) lean = -LEAN_LIMIT;
             step_physics(game, lean, dt);
         }
+
+        br_ghost_record_tick(&game->recorder, game->elapsed,
+                             &game->bike.head.pos,
+                             br_bike_angle_deg(&game->bike));
 
         br_game_audio_tick(&game->audio, dt);
         br_game_audio_engine(&game->audio,

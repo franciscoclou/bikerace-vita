@@ -2,6 +2,7 @@
 #define BR_APP_H
 
 #include "game/game.h"
+#include "game/ghost.h"
 #include "game/save.h"
 #include "platform/input.h"
 #include "ui/art.h"
@@ -34,6 +35,7 @@ typedef struct {
     br_pause    pause;
     br_result   result;
     br_game     game;
+    br_ghost_store *ghosts;
 
     br_app_screen screen;
     br_game_state last_race_state;
