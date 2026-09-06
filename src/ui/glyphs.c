@@ -19,7 +19,23 @@ static void draw_face(float cx, float cy, float radius)
     br_fill_circle(cx, cy, radius, &FACE);
 }
 
-void br_button_draw(br_button button, float x, float y, float size)
+/* A dark plate with a word on it, which is how the Vita actually labels its
+ * shoulder and START buttons -- a bare symbol there reads as a generic icon. */
+static void draw_word_button(float x, float y, float size, float width,
+                             const char *word, const br_font *font)
+{
+    br_fill_round_rect(x, y + size * 0.14f, width, size * 0.72f,
+                       size * 0.20f, &FACE);
+    if (font) {
+        float text_size = size * 0.50f;
+        br_font_draw_centered(font, word, x + width * 0.5f,
+                              y + size * 0.14f + (size * 0.72f - text_size) * 0.5f,
+                              text_size, &PLAIN);
+    }
+}
+
+void br_button_draw(br_button button, float x, float y, float size,
+                    const br_font *font)
 {
     float radius = size * 0.5f;
     float cx = x + radius, cy = y + radius;
@@ -53,17 +69,17 @@ void br_button_draw(br_button button, float x, float y, float size)
         br_fill_line(cx - arm, cy + arm, cx - arm, cy - arm, stroke, &SQUARE);
         break;
 
-    case BR_BUTTON_START: {
-        /* The Vita prints Start as a bar with a triangle beside it. */
-        float w = size * 1.45f;
-        br_fill_round_rect(x, y + size * 0.12f, w, size * 0.76f, size * 0.24f, &FACE);
-        br_fill_rect(x + w * 0.24f, cy - arm * 0.8f, stroke, arm * 1.6f, &PLAIN);
-        br_fill_line(x + w * 0.46f, cy - arm * 0.8f, x + w * 0.72f, cy, stroke, &PLAIN);
-        br_fill_line(x + w * 0.72f, cy, x + w * 0.46f, cy + arm * 0.8f, stroke, &PLAIN);
-        br_fill_line(x + w * 0.46f, cy - arm * 0.8f, x + w * 0.46f, cy + arm * 0.8f,
-                     stroke, &PLAIN);
+    case BR_BUTTON_START:
+        draw_word_button(x, y, size, br_button_width(button, size), "START", font);
         break;
-    }
+
+    case BR_BUTTON_LTRIGGER:
+        draw_word_button(x, y, size, br_button_width(button, size), "L", font);
+        break;
+
+    case BR_BUTTON_RTRIGGER:
+        draw_word_button(x, y, size, br_button_width(button, size), "R", font);
+        break;
 
     case BR_BUTTON_DPAD: {
         float bar = size * 0.30f;
@@ -85,9 +101,11 @@ void br_button_draw(br_button button, float x, float y, float size)
 float br_button_width(br_button button, float size)
 {
     switch (button) {
-    case BR_BUTTON_START: return size * 1.45f;
-    case BR_BUTTON_TOUCH: return size * 1.30f;
-    default:              return size;
+    case BR_BUTTON_START:    return size * 2.05f;
+    case BR_BUTTON_LTRIGGER:
+    case BR_BUTTON_RTRIGGER: return size * 0.92f;
+    case BR_BUTTON_TOUCH:    return size * 1.30f;
+    default:                 return size;
     }
 }
 
@@ -115,7 +133,7 @@ float br_hints_draw(const br_hint *hints, int count, const br_font *font,
     for (i = 0; i < count; i++) {
         float label_size = size * 0.86f;
 
-        br_button_draw(hints[i].button, x, y, size);
+        br_button_draw(hints[i].button, x, y, size, font);
         x += br_button_width(hints[i].button, size) + GAP_AFTER_GLYPH;
 
         /* Sit the label on the glyph's centre line. */

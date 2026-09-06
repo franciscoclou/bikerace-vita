@@ -4,10 +4,11 @@
 #include "../platform/input.h"
 #include "art.h"
 #include "font.h"
-#include "optionlist.h"
+#include "iconbar.h"
 
 /* The pause screen. The original had nothing like it -- Android's back button
- * tore the whole Activity down -- so this is new. */
+ * tore the whole Activity down -- so this is new. It doubles as the in-race
+ * button reference, which is the moment anyone actually wants one. */
 
 typedef enum {
     BR_PAUSE_NOTHING = 0,
@@ -18,7 +19,7 @@ typedef enum {
 
 typedef struct {
     const br_ui_art *art;
-    br_option_list   list;
+    br_iconbar       bar;
 } br_pause;
 
 void br_pause_init(br_pause *pause, const br_ui_art *art);

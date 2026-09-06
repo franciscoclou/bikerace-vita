@@ -28,6 +28,7 @@ br_start_action br_start_update(br_start *start, const br_input *in, float dt);
 void br_start_draw(const br_start *start, const br_font *display,
                    const br_font *body);
 /* Just the artwork and logo, for screens that sit on top of it. */
-void br_start_draw_backdrop(const br_start *start, const br_font *display);
+void br_start_draw_backdrop(const br_start *start, const br_font *display,
+                            const br_font *body);
 
 #endif /* BR_START_H */

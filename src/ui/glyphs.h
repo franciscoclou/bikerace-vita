@@ -14,12 +14,17 @@ typedef enum {
     BR_BUTTON_TRIANGLE,
     BR_BUTTON_SQUARE,
     BR_BUTTON_START,
+    BR_BUTTON_LTRIGGER,
+    BR_BUTTON_RTRIGGER,
     BR_BUTTON_DPAD,
     BR_BUTTON_TOUCH
 } br_button;
 
-/* Draws one button, `size` across, with its top-left at x, y. */
-void  br_button_draw(br_button button, float x, float y, float size);
+/* Draws one button, `size` tall, with its top-left at x, y. The Vita marks
+ * START and the triggers with words rather than shapes, so those need a font;
+ * pass NULL and they fall back to a plain plate. */
+void  br_button_draw(br_button button, float x, float y, float size,
+                     const br_font *font);
 float br_button_width(br_button button, float size);
 
 typedef struct {

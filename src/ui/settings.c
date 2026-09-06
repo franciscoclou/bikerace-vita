@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../engine/render.h"
+#include "controls.h"
 #include "glyphs.h"
 #include "theme.h"
 
@@ -16,18 +17,6 @@
 #define OPTION_TOP 176.0f
 
 enum { ROW_SOUND = 0, ROW_MUSIC, ROW_CONTROLS, ROW_BACK };
-
-/* What every button does, shown rather than spelled out. */
-static const struct { br_button button; const char *what; } s_controls[] = {
-    { BR_BUTTON_CROSS,    "Accelerate  /  confirm" },
-    { BR_BUTTON_SQUARE,   "Brake, then reverse" },
-    { BR_BUTTON_TRIANGLE, "Bike list, from the menus" },
-    { BR_BUTTON_CIRCLE,   "Reset the level  /  back" },
-    { BR_BUTTON_START,    "Pause  /  back to the levels" },
-    { BR_BUTTON_DPAD,     "Lean, and move in menus" },
-    { BR_BUTTON_TOUCH,    "Tap anything in the menus" },
-};
-#define CONTROL_COUNT ((int)(sizeof(s_controls) / sizeof(s_controls[0])))
 
 void br_settings_init(br_settings *settings, const br_ui_art *art)
 {
@@ -115,25 +104,20 @@ static void draw_controls(const br_settings *settings, const br_font *display,
                           const br_font *body)
 {
     static const br_hint hints[] = { { BR_BUTTON_CIRCLE, "back" } };
-    float x = (BR_UI_W - 620.0f) * 0.5f;
-    float y = 56.0f;
-    int i;
+    float w = 660.0f;
+    float x = (BR_UI_W - w) * 0.5f;
+    float y = 34.0f;
 
-    draw_panel(settings, x, y, 620.0f, 428.0f);
-    br_font_draw_centered(display, "CONTROLS", BR_UI_W * 0.5f, y + 20.0f, 36.0f,
+    draw_panel(settings, x, y, w, 466.0f);
+    br_font_draw_centered(display, "CONTROLS", BR_UI_W * 0.5f, y + 14.0f, 34.0f,
                           &BR_INK);
 
-    for (i = 0; i < CONTROL_COUNT; i++) {
-        float row_y = y + 78.0f + (float)i * 48.0f;
-
-        br_button_draw(s_controls[i].button, x + 40.0f, row_y, 34.0f);
-        br_font_draw(body, s_controls[i].what, x + 110.0f, row_y + 4.0f, 26.0f,
-                     &BR_INK);
-    }
+    br_controls_draw(BR_CONTROLS_ALL, settings->art, body, x + 44.0f, y + 72.0f,
+                     33.0f, &BR_INK);
 
     br_hints_draw(hints, 1, body,
                   (BR_UI_W - br_hints_width(hints, 1, body, 26.0f)) * 0.5f,
-                  BR_UI_H - 44.0f, 26.0f, &BR_TEXT);
+                  BR_UI_H - 40.0f, 26.0f, &BR_TEXT);
 }
 
 void br_settings_draw(const br_settings *settings, const br_font *display,
