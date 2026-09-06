@@ -921,6 +921,57 @@ static void test_ghost(br_game *game)
     remove("assets_out/ghosts.bin");
 }
 
+static void test_ghost_shows_after_first_finish(void)
+{
+    br_app app;
+    br_input in;
+
+    begin("a ghost shows the first time it exists");
+
+    remove("assets_out/save.bin");
+    remove("assets_out/ghosts.bin");
+    CHECK(br_app_init(&app) == 0, "app init failed");
+
+    /* Play 1-1 with nothing recorded: no ghost, and nothing hidden either. */
+    br_menu_open_levels(&app.menu, 0);
+    app.menu.level = 0;
+    app.screen = BR_APP_MENU;
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.screen == BR_APP_RACING, "1-1 did not start");
+    CHECK(app.game.ghost == NULL, "a fresh level already has a ghost");
+    CHECK(!app.game.ghost_hidden, "nothing was hidden, yet the flag is set");
+
+    finish_current_level(&app);
+    CHECK(app.game.state == BR_STATE_FINISHED, "the run did not finish");
+
+    /* The run just set becomes the ghost, and it must be on: it was never
+     * switched off, it simply did not exist before. */
+    CHECK(app.game.ghost != NULL, "finishing did not record a ghost");
+    CHECK(!app.game.ghost_hidden,
+          "the new ghost came up hidden -- 'no ghost yet' was mistaken for "
+          "'the player turned it off'");
+
+    /* Repeating keeps it on. */
+    memset(&in, 0, sizeof(in));
+    in.back_pressed = 1;                    /* Circle repeats from the panel */
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.screen == BR_APP_RACING, "repeat did not restart the level");
+    CHECK(app.game.ghost != NULL && !app.game.ghost_hidden,
+          "the ghost is off after repeating a level you just beat");
+
+    /* Switching it off in pause sticks across a restart of the same level. */
+    app.game.ghost_hidden = 1;
+    br_game_restart(&app.game);
+    CHECK(app.game.ghost_hidden,
+          "restarting turned the ghost back on after it was switched off");
+
+    br_app_free(&app);
+    remove("assets_out/save.bin");
+    remove("assets_out/ghosts.bin");
+}
+
 static void test_menu_navigation(br_game *game)
 {
     br_menu menu;
@@ -1590,6 +1641,7 @@ int main(int argc, char **argv)
     test_ghost(&game);
     test_gating(&game);
     test_gating_is_enforced();
+    test_ghost_shows_after_first_finish();
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);

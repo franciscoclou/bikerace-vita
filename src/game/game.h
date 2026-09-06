@@ -54,7 +54,11 @@ typedef struct {
      * of the run in progress. */
     br_ghost_recorder recorder;
     const br_ghost   *ghost;
-    int               ghost_enabled;
+    /* Whether the player switched the ghost off, which is a different thing
+     * from whether there is one to show. Conflating the two meant a ghost
+     * created by a first completion inherited the "off" that only meant
+     * "there was nothing to draw". */
+    int               ghost_hidden;
 
     int          *nearby;         /* scratch for broad-phase results */
     int           nearby_max;

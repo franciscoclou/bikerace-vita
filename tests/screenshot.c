@@ -183,7 +183,7 @@ int main(int argc, char **argv)
         recorded.time = app.game.elapsed;
         if (recorded.count > 4) {
             app.game.ghost = &recorded;
-            app.game.ghost_enabled = 1;
+            app.game.ghost_hidden = 0;
             br_scene_use_ghost(&app.game.scene, (int)recorded.bike);
             app.game.elapsed -= 0.8f;      /* let the ghost lead */
             shoot(&app, dir, "race_ghost", 3000);

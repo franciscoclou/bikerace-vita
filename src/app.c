@@ -112,12 +112,14 @@ static void resume_race(br_app *app)
  * otherwise keep drawing the old one until the level was re-entered. */
 static void refresh_ghost(br_app *app, int world, int level)
 {
-    int keep_enabled = app->game.ghost_enabled;
-
     app->game.ghost = br_ghost_get(app->ghosts, world, level);
-    app->game.ghost_enabled = app->game.ghost != NULL && keep_enabled;
     br_scene_use_ghost(&app->game.scene,
                        app->game.ghost ? (int)app->game.ghost->bike : -1);
+}
+
+static int ghost_showing(const br_app *app)
+{
+    return app->game.ghost != NULL && !app->game.ghost_hidden;
 }
 
 static void begin_race(br_app *app, int world, int level)
@@ -131,7 +133,7 @@ static void begin_race(br_app *app, int world, int level)
         LOGE("app: could not start %d-%d", world + 1, level + 1);
         return;
     }
-    app->game.ghost_enabled = 1;   /* a fresh level starts showing its ghost */
+    app->game.ghost_hidden = 0;    /* a fresh level starts showing its ghost */
     br_save_remember_place(&app->save, world, level);
 
     refresh_ghost(app, world, level);
@@ -260,8 +262,7 @@ static void update_race(br_app *app, const br_input *in, float dt)
 
     if (in->pause_pressed) {
         br_game_audio_silence(&app->game.audio);
-        br_pause_open(&app->pause, app->game.ghost != NULL,
-                      app->game.ghost_enabled);
+        br_pause_open(&app->pause, app->game.ghost != NULL, ghost_showing(app));
         app->screen = BR_APP_PAUSED;
         return;
     }
@@ -296,9 +297,8 @@ static void update_paused(br_app *app, const br_input *in, float dt)
         to_menu(app);
         break;
     case BR_PAUSE_TOGGLE_GHOST:
-        app->game.ghost_enabled = !app->game.ghost_enabled;
-        br_pause_open(&app->pause, app->game.ghost != NULL,
-                      app->game.ghost_enabled);
+        app->game.ghost_hidden = !app->game.ghost_hidden;
+        br_pause_open(&app->pause, app->game.ghost != NULL, ghost_showing(app));
         break;
     case BR_PAUSE_NOTHING:
         break;
@@ -316,7 +316,7 @@ static void update_result(br_app *app, const br_input *in, float dt)
         }
         if (br_game_next_level(&app->game) == 0) {
             refresh_ghost(app, app->game.world_index, app->game.level_index);
-            app->game.ghost_enabled = app->game.ghost != NULL;
+            app->game.ghost_hidden = 0;
             app->menu.world = app->game.world_index;
             app->menu.level = app->game.level_index;
             br_save_remember_place(&app->save, app->game.world_index,
@@ -420,8 +420,7 @@ void br_app_draw(br_app *app, unsigned time_ms)
             br_ghost_pose pose;
 
             memset(&pose, 0, sizeof(pose));
-            if (app->game.ghost && app->game.ghost_enabled &&
-                app->screen == BR_APP_RACING) {
+            if (ghost_showing(app) && app->screen == BR_APP_RACING) {
                 pose.active = br_ghost_pose_at(app->game.ghost, app->game.elapsed,
                                                &pose.pos, &pose.angle_deg,
                                                &pose.wheel_deg) ||

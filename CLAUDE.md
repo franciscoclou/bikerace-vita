@@ -318,6 +318,13 @@ Ghosts live in `ux0:data/bikerace/ghosts.bin`, apart from `save.bin`, so a
 damaged ghost can never cost anyone their progress. Pause offers a switch to
 hide it, and only when the level has one.
 
+`br_game.ghost_hidden` is the player's own choice, deliberately **not** the
+same thing as whether a ghost exists. One flag for both meant a ghost created
+by a first completion inherited the "off" that only ever meant "there is
+nothing to draw", so it stayed invisible until the level was left and
+re-entered. The choice resets when the level changes; it survives a restart of
+the same level.
+
 ## LiveArea
 
 The gate -- the button you press to launch -- cannot be placed freely. Its
@@ -326,6 +333,9 @@ centres it and `psmobile` puts it on the right; **none place it on the left**.
 So the background is mirrored and `psmobile` is used, which puts the rider on
 the left facing the gate instead of being covered by it. Styles a2 to a5 exist
 but are undocumented, and a wrong one costs a full reinstall to find out.
+
+The bubble on the home screen keeps the game's own icon rather than a crop of
+the scene -- that icon is what the app is recognised by.
 
 Regenerate with `./scripts/make_livearea.sh`, which also writes the
 template.xml so the style and the mirroring cannot drift apart.
