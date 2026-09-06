@@ -21,8 +21,8 @@ CORE := \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/game/save.c ../src/game/audio.c \
   ../src/platform/fs.c ../src/platform/wav.c ../src/platform/mixer.c \
-  ../src/ui/preview.c ../src/ui/art.c ../src/ui/glyphs.c \
-  ../src/ui/optionlist.c ../src/ui/menu.c ../src/ui/pause.c \
+  ../src/ui/preview.c ../src/ui/art.c ../src/ui/glyphs.c ../src/ui/controls.c \
+  ../src/ui/optionlist.c ../src/ui/iconbar.c ../src/ui/menu.c ../src/ui/pause.c \
   ../src/ui/start.c ../src/ui/settings.c ../src/ui/result.c ../src/app.c \
   ../src/ui/font.c \
   stub/gl_stub.c log_stub.c blobs_stub.c audio_stub.c

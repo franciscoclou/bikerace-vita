@@ -442,48 +442,64 @@ static void draw_stars(const br_menu *menu, float x, float y, float size,
 }
 
 /* The bike as it sits in the world: body sprite with a wheel under each end,
- * placed from the same constants the race uses. */
+ * placed from the same constants the race uses. Everything is measured in
+ * world units first and scaled once, so the wheels are inside the box the
+ * caller asked for rather than hanging out of the bottom of it. */
 static void draw_bike_portrait(const br_menu *menu, br_bike_type type,
                                float cx, float cy, float box_w, float box_h)
 {
     const br_bike_def *def = br_bike_def_for(type);
     const br_texture *body = &menu->bike_tex[type];
     const br_texture *wheel = &menu->art->t_wheel[def->wheel];
-    float body_w, body_h, scale, per_unit, wheel_px;
-    float front_dx, rear_dx, wheel_dy;
+    float body_w, body_h, half_w, half_h;
+    float front_dx, rear_dx, wheel_dy, radius = BR_BIKE_WHEEL_DIAMETER * 0.5f;
+    float min_x, max_x, min_y, max_y, scale, origin_x, origin_y;
 
     if (!br_ui_has(body))
         return;
 
-    body_w = br_texture_w(body) * (float)body->image->width;
-    body_h = br_texture_h(body) * (float)body->image->height;
-    scale = box_w / body_w;
-    if (box_h / body_h < scale)
-        scale = box_h / body_h;
-    body_w *= scale;
-    body_h *= scale;
+    /* The sprite's own proportions, at the width the race would draw it. */
+    body_w = def->sprite_width;
+    body_h = body_w * (br_texture_h(body) * (float)body->image->height) /
+                      (br_texture_w(body) * (float)body->image->width);
+    half_w = body_w * 0.5f;
+    half_h = body_h * 0.5f;
 
-    /* Pixels per world unit, from the width the race would draw this bike at. */
-    per_unit = body_w / def->sprite_width;
-    wheel_px = BR_BIKE_WHEEL_DIAMETER * per_unit;
+    /* Wheels sit at y = 0.1 and the sprite is centred 0.11 below the head at
+     * (0, 0.42), shifted by this bike's own offset. UI y grows downward. */
+    front_dx = def->front_x - def->sprite_offset.x;
+    rear_dx  = def->rear_x  - def->sprite_offset.x;
+    wheel_dy = -(0.1f - (0.42f - 0.11f) - def->sprite_offset.y);
 
-    /* Wheels sit at y = 0.1 and the sprite is centred on the rider's body,
-     * which is 0.11 below the head at (0, 0.42), shifted by the bike's offset. */
-    front_dx = (def->front_x - def->sprite_offset.x) * per_unit;
-    rear_dx  = (def->rear_x  - def->sprite_offset.x) * per_unit;
-    wheel_dy = -(0.1f - (0.42f - 0.11f) - def->sprite_offset.y) * per_unit;
+    min_x = -half_w; max_x = half_w;
+    min_y = -half_h; max_y = half_h;
+    if (rear_dx  - radius < min_x) min_x = rear_dx  - radius;
+    if (front_dx - radius < min_x) min_x = front_dx - radius;
+    if (rear_dx  + radius > max_x) max_x = rear_dx  + radius;
+    if (front_dx + radius > max_x) max_x = front_dx + radius;
+    if (wheel_dy - radius < min_y) min_y = wheel_dy - radius;
+    if (wheel_dy + radius > max_y) max_y = wheel_dy + radius;
+
+    scale = box_w / (max_x - min_x);
+    if (box_h / (max_y - min_y) < scale)
+        scale = box_h / (max_y - min_y);
+
+    /* Centre the whole bike, not just its body. */
+    origin_x = cx - (min_x + max_x) * 0.5f * scale;
+    origin_y = cy - (min_y + max_y) * 0.5f * scale;
 
     if (br_ui_has(wheel)) {
-        br_draw_rect(cx + front_dx - wheel_px * 0.5f, cy + wheel_dy - wheel_px * 0.5f,
-                     cx + front_dx + wheel_px * 0.5f, cy + wheel_dy + wheel_px * 0.5f,
-                     wheel, NULL);
-        br_draw_rect(cx + rear_dx - wheel_px * 0.5f, cy + wheel_dy - wheel_px * 0.5f,
-                     cx + rear_dx + wheel_px * 0.5f, cy + wheel_dy + wheel_px * 0.5f,
-                     wheel, NULL);
+        float r = radius * scale;
+        float y = origin_y + wheel_dy * scale;
+        float fx = origin_x + front_dx * scale;
+        float rx = origin_x + rear_dx * scale;
+
+        br_draw_rect(fx - r, y - r, fx + r, y + r, wheel, NULL);
+        br_draw_rect(rx - r, y - r, rx + r, y + r, wheel, NULL);
     }
 
-    br_draw_rect(cx - body_w * 0.5f, cy - body_h * 0.5f,
-                 cx + body_w * 0.5f, cy + body_h * 0.5f, body, NULL);
+    br_draw_rect(origin_x - half_w * scale, origin_y - half_h * scale,
+                 origin_x + half_w * scale, origin_y + half_h * scale, body, NULL);
 }
 
 static void draw_back_button(const br_menu *menu, const br_font *body,
@@ -524,6 +540,7 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
     snprintf(text, sizeof(text), "%d of %d stars", br_save_total_stars(save),
              pack->world_count * pack->worlds[0].level_count * 3);
     br_font_draw_right(body, text, SCREEN_W - 24.0f, 34.0f, 26.0f, &BR_TEXT_DIM);
+    br_ui_tiremarks(menu->art, SCREEN_W * 0.5f, 80.0f, SCREEN_W * 0.86f, 26.0f);
 
     for (i = 0; i < pack->world_count; i++) {
         int selected = i == menu->world;
@@ -578,6 +595,7 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
     int i;
 
     br_font_draw(display, br_world_name(menu->world), 32.0f, 22.0f, 40.0f, &BR_TEXT);
+    br_ui_tiremarks(menu->art, SCREEN_W * 0.5f, 80.0f, SCREEN_W * 0.86f, 26.0f);
 
     snprintf(text, sizeof(text), "%d of %d stars",
              br_save_world_stars(save, menu->world), world->level_count * 3);
@@ -630,6 +648,7 @@ static void draw_bikes(const br_menu *menu, const br_font *display,
     int i;
 
     br_font_draw(display, "BIKES", 32.0f, 22.0f, 40.0f, &BR_TEXT);
+    br_ui_tiremarks(menu->art, SCREEN_W * 0.5f, 80.0f, SCREEN_W * 0.86f, 26.0f);
     br_font_draw_right(body, chosen->label, SCREEN_W - 32.0f, 34.0f, 28.0f, &BR_TEXT);
 
     for (i = 0; i < BR_BIKE_TYPE_COUNT; i++) {

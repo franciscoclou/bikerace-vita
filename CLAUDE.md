@@ -234,9 +234,11 @@ cycle and they catch the bugs a UDP log cannot explain.
 
 `src/app.c` owns the flow: start screen, settings, the world/level/bike menus,
 the race, pause, and the end-of-run panel. Every screen is its own module under
-`src/ui/`, and the ones that are a vertical list of choices share
-`src/ui/optionlist.c` rather than each growing its own navigation and
-hit-testing. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
+`src/ui/`. Short, obvious choices -- resume, retry, next -- use the game's own
+round buttons in a row via `src/ui/iconbar.c`; wordier lists use
+`src/ui/optionlist.c`. Both share the same navigation contract rather than each
+growing its own. The button reference lives once in `src/ui/controls.c`, since
+settings shows all of it and pause shows only the race half. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
 primitives in `src/ui/glyphs.c`, since a touch game shipped none.
 
 ## Sound
@@ -247,9 +249,17 @@ back. The climb and drop hand over at 95% played so the change lands on the
 sample's own beat. Landings sound only above a force threshold and only after
 air time. All of that is ported as-is in [src/game/audio.c](src/game/audio.c).
 
-The mixer ([src/platform/audio.c](src/platform/audio.c)) runs 48 kHz stereo on
-its own thread and resamples each voice from its own rate, so the game's 22 kHz
-mono files play untouched. WAV loading lives apart in `src/platform/wav.c` so
+The mixing itself is in [src/platform/mixer.c](src/platform/mixer.c) with no
+platform in it, so the host tests run the real code;
+[src/platform/audio.c](src/platform/audio.c) only owns the 48 kHz stereo output
+port and its thread. Each voice resamples from its own rate, so the game's
+22 kHz mono files play untouched.
+
+A voice's position is a whole frame count plus a separate fraction, **not** one
+16.16 number. A single 16.16 value only addresses 65535 frames -- three seconds
+at 22 kHz -- so anything longer never reaches its own end and restarts for
+ever. That is a real bug this port shipped once: it made the four-second win
+sting repeat and the three-minute menu track loop its opening. WAV loading lives apart in `src/platform/wav.c` so
 the host tests load the real files and run the real state machine.
 
 ## Fonts and save data

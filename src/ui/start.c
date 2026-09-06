@@ -18,7 +18,7 @@ void br_start_init(br_start *start, const br_ui_art *art)
     start->art = art;
     br_option_list_init(&start->list, OPTION_X, OPTION_TOP, OPTION_W, OPTION_H,
                         OPTION_GAP);
-    br_option_list_add(&start->list, "Single Player", NULL);
+    br_option_list_add(&start->list, "Start", NULL);
     br_option_list_add(&start->list, "Settings", NULL);
     br_option_list_add(&start->list, "Exit", NULL);
 }
@@ -41,7 +41,8 @@ br_start_action br_start_update(br_start *start, const br_input *in, float dt)
     }
 }
 
-void br_start_draw_backdrop(const br_start *start, const br_font *display)
+void br_start_draw_backdrop(const br_start *start, const br_font *display,
+                            const br_font *body)
 {
     br_ui_begin();
 
@@ -56,9 +57,18 @@ void br_start_draw_backdrop(const br_start *start, const br_font *display)
     }
 
     if (br_ui_has(&start->art->t_logo)) {
-        float h = 150.0f;
-        float w = h * (float)start->art->logo.width / (float)start->art->logo.height;
-        br_draw_rect(40.0f, 30.0f, 40.0f + w, 30.0f + h, &start->art->t_logo, NULL);
+        /* The artwork carries "by Top Free Games" below a clear gap at 226 of
+         * 247 rows. Crop it off and put this port's own line there instead. */
+        br_texture cropped = start->art->t_logo;
+        float logo_rows = 226.0f / 247.0f;
+        float h, w;
+
+        cropped.v1 = cropped.v0 + (cropped.v1 - cropped.v0) * logo_rows;
+        h = 138.0f * logo_rows;
+        w = 138.0f * (float)start->art->logo.width / (float)start->art->logo.height;
+        br_draw_rect(40.0f, 26.0f, 40.0f + w, 26.0f + h, &cropped, NULL);
+        br_font_draw(body, "by franciscoclou", 46.0f, 26.0f + h + 2.0f,
+                     22.0f, &BR_TEXT);
     } else {
         br_font_draw(display, "BIKE RACE", 40.0f, 40.0f, 54.0f, &BR_TEXT);
     }
@@ -73,7 +83,7 @@ void br_start_draw(const br_start *start, const br_font *display,
         { BR_BUTTON_TOUCH, "tap" },
     };
 
-    br_start_draw_backdrop(start, display);
+    br_start_draw_backdrop(start, display, body);
 
     br_option_list_draw(&start->list, body, 28.0f, &BR_PANEL, &BR_ROW_SELECTED,
                         &BR_TEXT);

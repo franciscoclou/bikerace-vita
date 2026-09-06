@@ -1040,15 +1040,21 @@ static void test_result_actions(void)
     /* Cross takes the first row: next level after a finish... */
     memset(&in, 0, sizeof(in));
     in.confirm_pressed = 1;
-    result.list.selected = 0;
+    result.bar.selected = 0;
     CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_NEXT,
           "Cross did not move to the next level");
 
     /* ...and another go after a crash, since there is no next. */
     br_result_open(&result, 0, 0, 4.0f, 0.0f, 0);
-    result.list.selected = 0;
+    CHECK(result.bar.count == 2,
+          "the crash panel offers %d choices; 'try again' and 'repeat' are the "
+          "same thing without a next level", result.bar.count);
+    result.bar.selected = 0;
     CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
           "Cross after a crash did not retry");
+    result.bar.selected = 1;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_MENU,
+          "the second crash choice is not the level list");
 }
 
 static void test_start_screen(void)

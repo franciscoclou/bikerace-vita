@@ -4,7 +4,7 @@
 #include "../platform/input.h"
 #include "art.h"
 #include "font.h"
-#include "optionlist.h"
+#include "iconbar.h"
 
 /* What comes up when a run ends, finished or crashed. The original handed this
  * to an Android dialog, so the panel art carried over but nothing else did. */
@@ -18,7 +18,7 @@ typedef enum {
 
 typedef struct {
     const br_ui_art *art;
-    br_option_list   list;
+    br_iconbar       bar;
     int   finished;      /* false means the rider crashed */
     int   stars;
     float time;

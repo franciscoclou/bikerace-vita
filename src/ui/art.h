@@ -21,6 +21,14 @@ typedef struct {
     br_texture t_star_on, t_star_off, t_logo, t_back, t_panel;
     br_texture t_start_screen, t_result;
 
+    /* The game's own round buttons, used for the choices after a run and in
+     * the pause screen, plus the dirt-track dressing. */
+    br_image   icon_retry, icon_next, icon_list, icon_play, icon_options, icon_ok;
+    br_image   tiremarks, label, sign;
+    br_texture t_icon_retry, t_icon_next, t_icon_list, t_icon_play;
+    br_texture t_icon_options, t_icon_ok;
+    br_texture t_tiremarks, t_label, t_sign;
+
     /* Wheels, indexed by br_wheel_kind. Cropped out of a world atlas by
      * scripts/extract_assets.sh so the menus never load one. */
     br_image   wheel[4];
@@ -31,6 +39,12 @@ typedef struct {
 
 int  br_ui_art_load(br_ui_art *art);
 void br_ui_art_free(br_ui_art *art);
+
+/* The tyre-track graphic as a divider: centred on x, `width` across and
+ * squashed to `height`, faded so it accents a title rather than competing
+ * with it. It is the game's own motif and does the job a rule would. */
+void br_ui_tiremarks(const br_ui_art *art, float centre_x, float y,
+                     float width, float height);
 
 static inline int br_ui_has(const br_texture *tex)
 {
