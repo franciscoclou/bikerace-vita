@@ -18,6 +18,8 @@ typedef struct {
     const char *labels[BR_OPTION_LIST_MAX];
     /* Optional right-hand text per row, for settings values. */
     const char *values[BR_OPTION_LIST_MAX];
+    /* Or a switch, which reads better than the words On and Off. */
+    const br_texture *switches[BR_OPTION_LIST_MAX];
     int   count;
 
     int   selected;
@@ -32,6 +34,8 @@ void br_option_list_init(br_option_list *list, float x, float y,
                          float w, float h, float gap);
 void br_option_list_clear(br_option_list *list);
 void br_option_list_add(br_option_list *list, const char *label, const char *value);
+void br_option_list_add_switch(br_option_list *list, const char *label,
+                               const br_texture *state);
 
 /* Returns the chosen row, or BR_OPTION_NONE. */
 int  br_option_list_update(br_option_list *list, const br_input *in, float dt);

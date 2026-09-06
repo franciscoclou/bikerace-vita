@@ -172,11 +172,11 @@ int main(int argc, char **argv)
     shoot(&app, dir, "pause_controls", 2500);
     app.pause.showing_controls = 0;
 
-    br_result_open(&app.result, 1, 3, 9.42f, 11.80f, 1);
+    br_result_open(&app.result, 1, 1, 3, 9.42f, 11.80f, 1);
     app.screen = BR_APP_RESULT;
     shoot(&app, dir, "result_complete", 2500);
 
-    br_result_open(&app.result, 0, 0, 4.10f, 0.0f, 0);
+    br_result_open(&app.result, 0, 0, 0, 4.10f, 0.0f, 0);
     shoot(&app, dir, "result_crashed", 2500);
 
     br_app_free(&app);

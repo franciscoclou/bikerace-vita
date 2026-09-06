@@ -25,6 +25,7 @@ void br_option_list_init(br_option_list *list, float x, float y,
 void br_option_list_clear(br_option_list *list)
 {
     list->count = 0;
+    memset(list->switches, 0, sizeof(list->switches));
 }
 
 void br_option_list_add(br_option_list *list, const char *label, const char *value)
@@ -33,6 +34,18 @@ void br_option_list_add(br_option_list *list, const char *label, const char *val
         return;
     list->labels[list->count] = label;
     list->values[list->count] = value;
+    list->switches[list->count] = NULL;
+    list->count++;
+}
+
+void br_option_list_add_switch(br_option_list *list, const char *label,
+                               const br_texture *state)
+{
+    if (list->count >= BR_OPTION_LIST_MAX)
+        return;
+    list->labels[list->count] = label;
+    list->values[list->count] = NULL;
+    list->switches[list->count] = state;
     list->count++;
 }
 
@@ -134,7 +147,16 @@ void br_option_list_draw(const br_option_list *list, const br_font *font,
         else
             br_fill_round_rect(x, y, w, h, CORNER, selected ? row_selected : row);
 
-        if (list->values[i]) {
+        if (list->switches[i] && list->switches[i]->image) {
+            const br_texture *sw = list->switches[i];
+            float sh = h * 0.56f;
+            float sw_w = sh * (float)sw->image->width / (float)sw->image->height;
+
+            br_font_draw(font, list->labels[i], x + 26.0f,
+                         y + (h - text_size) * 0.5f, text_size, text);
+            br_draw_rect(x + w - 26.0f - sw_w, y + (h - sh) * 0.5f,
+                         x + w - 26.0f, y + (h + sh) * 0.5f, sw, NULL);
+        } else if (list->values[i]) {
             br_font_draw(font, list->labels[i], x + 26.0f,
                          y + (h - text_size) * 0.5f, text_size, text);
             br_font_draw_right(font, list->values[i], x + w - 26.0f,

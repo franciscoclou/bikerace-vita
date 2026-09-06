@@ -10,6 +10,8 @@
 #define PANEL_W 620.0f
 #define PANEL_H 274.0f
 #define PANEL_Y 128.0f
+#define CONTROLS_PANEL_H 396.0f
+#define CONTROLS_PANEL_Y  70.0f
 
 #define ICON_SIZE 78.0f
 #define ICON_GAP  30.0f
@@ -63,30 +65,37 @@ br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
 void br_pause_draw(const br_pause *pause, const br_font *display,
                    const br_font *body, const char *subtitle)
 {
+    static const br_hint back[] = { { BR_BUTTON_CIRCLE, "back" } };
+    /* The control list needs a row per button, so the panel grows to hold it
+     * rather than the list spilling out of the bottom. */
+    float h = pause->showing_controls ? CONTROLS_PANEL_H : PANEL_H;
+    float y = pause->showing_controls ? CONTROLS_PANEL_Y : PANEL_Y;
     float x = (BR_UI_W - PANEL_W) * 0.5f;
 
     br_ui_begin();
     br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
+    br_ui_panel(pause->art, x, y, PANEL_W, h);
 
-    br_ui_panel(pause->art, x, PANEL_Y, PANEL_W, PANEL_H);
-
-    br_font_draw_centered(display, "PAUSED", BR_UI_W * 0.5f, PANEL_Y + 16.0f,
-                          38.0f, &BR_INK);
-    if (subtitle)
-        br_font_draw_centered(body, subtitle, BR_UI_W * 0.5f, PANEL_Y + 58.0f,
-                              22.0f, &BR_INK);
+    br_font_draw_centered(display, pause->showing_controls ? "CONTROLS" : "PAUSED",
+                          BR_UI_W * 0.5f, y + 16.0f, 38.0f, &BR_INK);
 
     if (pause->showing_controls) {
-        /* Only the ones that mean anything with a bike under you. */
-        static const br_hint back[] = { { BR_BUTTON_CIRCLE, "back" } };
+        float rows = (float)br_controls_count(BR_CONTROLS_RACE);
+        float row_h = 34.0f;
+        float top = y + 74.0f;
 
-        br_controls_draw(BR_CONTROLS_RACE, pause->art, body, x + 52.0f,
-                         PANEL_Y + 104.0f, 30.0f, &BR_INK);
+        /* Centre the block in whatever room is left below the title. */
+        top += (h - 74.0f - 48.0f - rows * row_h) * 0.5f;
+        br_controls_draw(BR_CONTROLS_RACE, pause->art, body, x + 48.0f, top,
+                         row_h, &BR_INK);
         br_hints_draw(back, 1, body,
                       (BR_UI_W - br_hints_width(back, 1, body, 26.0f)) * 0.5f,
-                      PANEL_Y + PANEL_H - 46.0f, 26.0f, &BR_INK);
+                      y + h - 44.0f, 26.0f, &BR_INK);
         return;
     }
 
+    if (subtitle)
+        br_font_draw_centered(body, subtitle, BR_UI_W * 0.5f, y + 58.0f,
+                              22.0f, &BR_INK);
     br_iconbar_draw(&pause->bar, body, 22.0f, &BR_INK, &BR_INK);
 }
