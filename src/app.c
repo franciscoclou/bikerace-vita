@@ -118,6 +118,27 @@ static void begin_race(br_app *app, int world, int level)
     resume_race(app);
 }
 
+/* Where "next" would go, rolling into the next world. */
+static void next_level_of(const br_app *app, int *world, int *level)
+{
+    *world = app->game.world_index;
+    *level = app->game.level_index + 1;
+    if (*level >= app->game.pack.worlds[*world].level_count) {
+        *level = 0;
+        (*world)++;
+    }
+}
+
+static int next_level_reachable(const br_app *app)
+{
+    int world, level;
+
+    next_level_of(app, &world, &level);
+    if (world >= app->game.pack.world_count)
+        return 0;
+    return br_save_level_unlocked(&app->save, world, level);
+}
+
 static void show_result(br_app *app)
 {
     const br_level_progress *progress =
@@ -129,11 +150,14 @@ static void show_result(br_app *app)
     if (finished) {
         br_save_record(&app->save, app->game.world_index, app->game.level_index,
                        app->game.stars, app->game.elapsed);
+        br_save_unlock_next(&app->save, app->game.world_index, app->game.level_index);
         br_save_flush(&app->save);
     }
 
-    br_result_open(&app->result, finished, app->game.stars, app->game.elapsed,
-                   previous_best, record);
+    /* Only offer "next" when there is one and it can be played: the level
+     * after a world's last is in the next world, which may still want stars. */
+    br_result_open(&app->result, finished, next_level_reachable(app),
+                   app->game.stars, app->game.elapsed, previous_best, record);
     app->screen = BR_APP_RESULT;
 }
 
@@ -241,6 +265,11 @@ static void update_result(br_app *app, const br_input *in, float dt)
 {
     switch (br_result_update(&app->result, in, dt)) {
     case BR_RESULT_NEXT:
+        if (!next_level_reachable(app)) {
+            br_menu_open_levels(&app->menu, app->game.world_index);
+            to_menu(app);
+            break;
+        }
         if (br_game_next_level(&app->game) == 0) {
             app->menu.world = app->game.world_index;
             app->menu.level = app->game.level_index;

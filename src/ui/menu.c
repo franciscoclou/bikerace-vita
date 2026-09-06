@@ -374,8 +374,13 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
-        if (commit)
+        if (commit) {
+            /* Finish the one before it first. Until this was here the gate
+             * only affected how a tile was drawn, not whether it would open. */
+            if (!br_save_level_unlocked(save, menu->world, menu->level))
+                return BR_MENU_STAY;
             return BR_MENU_PLAY;
+        }
         if (back)
             br_menu_open_worlds(menu);
         return BR_MENU_STAY;
@@ -384,7 +389,6 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
 
 /* ------------------------------------------------------------------ draw -- */
 
-/* Written premultiplied, since that is what the blend mode expects. */
 /* Colours all live in ui/theme.h so every screen agrees. Two are local
  * because they only mean anything against the level tiles. */
 static const br_color TRACK        = { 0.93f, 0.87f, 0.76f, 1.00f };

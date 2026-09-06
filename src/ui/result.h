@@ -20,6 +20,7 @@ typedef struct {
     const br_ui_art *art;
     br_iconbar       bar;
     int   finished;      /* false means the rider crashed */
+    int   has_next;      /* a next level exists and is unlocked */
     int   stars;
     float time;
     float best_time;     /* 0 when there is no record yet */
@@ -27,8 +28,8 @@ typedef struct {
 } br_result;
 
 void br_result_init(br_result *result, const br_ui_art *art);
-void br_result_open(br_result *result, int finished, int stars, float time,
-                    float best_time, int is_record);
+void br_result_open(br_result *result, int finished, int has_next, int stars,
+                    float time, float best_time, int is_record);
 
 br_result_action br_result_update(br_result *result, const br_input *in, float dt);
 void br_result_draw(const br_result *result, const br_font *display,

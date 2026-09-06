@@ -671,9 +671,11 @@ static void test_gating(br_game *game)
           br_save_world_requirement(1));
     CHECK(br_save_world_requirement(11) == 228, "world 12 wants %d, not 228",
           br_save_world_requirement(11));
-    CHECK(br_save_world_requirement(15) == 0,
-          "world 16 wants %d stars; it is absent from the original's table and "
-          "so costs nothing", br_save_world_requirement(15));
+    /* The original's table has no entry for world 16, which left Halloween
+     * free. It sits among the seasonal worlds, so it costs what they cost. */
+    CHECK(br_save_world_requirement(15) == 66,
+          "world 16 wants %d stars, not the 66 the seasonal worlds want",
+          br_save_world_requirement(15));
 
     /* Earning enough stars opens the world. */
     for (l = 0; l < per_world; l++)
@@ -711,6 +713,88 @@ static void test_gating(br_game *game)
     CHECK(save.bike_type == 5, "reset changed the chosen bike");
 
     br_save_free(&save);
+    remove("assets_out/save.bin");
+}
+
+static void finish_current_level(br_app *app)
+{
+    br_input in;
+    int i;
+
+    memset(&in, 0, sizeof(in));
+    app->game.state = BR_STATE_RUNNING;
+    br_app_update(app, &in, 1.0f / 60.0f);   /* unlatch the throttle */
+    in.accelerate = 1;
+
+    for (i = 0; i < 90 * 60 && app->screen == BR_APP_RACING; i++) {
+        float want = br_bike_angle_deg(&app->game.bike) / 45.0f;
+        in.lean = want > 1.0f ? 1.0f : (want < -1.0f ? -1.0f : want);
+        br_app_update(app, &in, 1.0f / 60.0f);
+    }
+}
+
+static void test_gating_is_enforced(void)
+{
+    br_app app;
+    br_input in;
+
+    begin("gating is enforced, not just drawn");
+
+    remove("assets_out/save.bin");
+    CHECK(br_app_init(&app) == 0, "app init failed");
+
+    /* Pressing Cross on a locked tile must not start it. Every unit test of
+     * the rules passed while this path ignored them entirely. */
+    br_menu_open_levels(&app.menu, 0);
+    app.menu.level = 5;
+    app.screen = BR_APP_MENU;
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.screen == BR_APP_MENU,
+          "a locked level started when Cross was pressed on it");
+
+    /* A locked world must not open either. */
+    br_menu_open_worlds(&app.menu);
+    app.menu.world = 4;
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.menu.screen == BR_MENU_WORLDS,
+          "a locked world opened its level list");
+
+    /* Finishing 1-1 has to open 1-2 -- through the app, not by calling the
+     * unlock function directly. */
+    br_menu_open_levels(&app.menu, 0);
+    app.menu.level = 0;
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.screen == BR_APP_RACING, "1-1 did not start");
+
+    finish_current_level(&app);
+    CHECK(app.game.state == BR_STATE_FINISHED,
+          "the run did not finish; cannot test what finishing unlocks");
+    CHECK(br_save_level_unlocked(&app.save, 0, 1),
+          "finishing 1-1 did not open 1-2");
+
+    /* Earning a world opens its first level without finishing anything. */
+    {
+        int w, l;
+        for (w = 0; w < 2; w++)
+            for (l = 0; l < app.game.pack.worlds[w].level_count; l++)
+                br_save_record(&app.save, w, l, 3, 10.0f);
+        CHECK(br_save_world_unlocked(&app.save, 2),
+              "world 3 shut with %d stars", br_save_total_stars(&app.save));
+        CHECK(br_save_level_unlocked(&app.save, 2, 0),
+              "world 3 is open but its first level is not");
+        CHECK(!br_save_level_unlocked(&app.save, 2, 1),
+              "opening world 3 opened more than its first level");
+    }
+
+    /* World 16 is gated like the other seasonal worlds. */
+    CHECK(br_save_world_requirement(15) == 66,
+          "world 16 wants %d stars, not 66", br_save_world_requirement(15));
+
+    br_app_free(&app);
     remove("assets_out/save.bin");
 }
 
@@ -1152,7 +1236,7 @@ static void test_result_actions(void)
     br_result_init(&result, &art);
 
     /* Circle repeats, Start steps out to the levels. */
-    br_result_open(&result, 1, 3, 9.5f, 12.0f, 1);
+    br_result_open(&result, 1, 1, 3, 9.5f, 12.0f, 1);
     memset(&in, 0, sizeof(in));
     in.back_pressed = 1;
     CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
@@ -1171,10 +1255,20 @@ static void test_result_actions(void)
           "Cross did not move to the next level");
 
     /* ...and another go after a crash, since there is no next. */
-    br_result_open(&result, 0, 0, 4.0f, 0.0f, 0);
+    br_result_open(&result, 0, 0, 0, 4.0f, 0.0f, 0);
     CHECK(result.bar.count == 2,
           "the crash panel offers %d choices; 'try again' and 'repeat' are the "
           "same thing without a next level", result.bar.count);
+
+    /* Finishing a world's last level with no stars for the next world must
+     * not offer to carry on into it. */
+    br_result_open(&result, 1, 0, 3, 9.0f, 0.0f, 1);
+    CHECK(result.bar.count == 2,
+          "a finish with no reachable next level still offers %d choices",
+          result.bar.count);
+    result.bar.selected = 0;
+    CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
+          "the first choice should be repeat when there is no next level");
     result.bar.selected = 0;
     CHECK(br_result_update(&result, &in, 1.0f / 60.0f) == BR_RESULT_REPEAT,
           "Cross after a crash did not retry");
@@ -1356,6 +1450,7 @@ int main(int argc, char **argv)
     test_fonts();
     test_save(&game);
     test_gating(&game);
+    test_gating_is_enforced();
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);
