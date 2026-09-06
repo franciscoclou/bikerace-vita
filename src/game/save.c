@@ -100,9 +100,11 @@ int br_save_total_stars(const br_save *save)
 }
 
 /* The original's per-world star totals, by index. */
+/* The original's table has no entry for world 16, which left Halloween free.
+ * It sits among the seasonal worlds, so it costs what they cost. */
 static const int s_world_requirement[] = {
     0, 12, 28, 44, 60, 84, 108, 132, 156, 180, 204, 228,
-    66, 66, 66, 0, 66, 66, 66
+    66, 66, 66, 66, 66, 66, 66
 };
 #define REQUIREMENT_COUNT ((int)(sizeof(s_world_requirement) / sizeof(int)))
 
@@ -125,9 +127,11 @@ int br_save_level_unlocked(const br_save *save, int world, int level)
     const br_level_progress *entry =
         br_save_level((br_save *)save, world, level);
 
-    if (!entry)
+    if (!entry || !br_save_world_unlocked(save, world))
         return 0;
-    return entry->unlocked && br_save_world_unlocked(save, world);
+    /* Earning a world's stars opens its first level. Deriving it rather than
+     * storing it means the two can never disagree. */
+    return entry->unlocked || level == 0;
 }
 
 void br_save_unlock_next(br_save *save, int world, int level)

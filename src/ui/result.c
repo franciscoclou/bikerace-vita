@@ -25,10 +25,11 @@ void br_result_init(br_result *result, const br_ui_art *art)
                     ICON_SIZE, ICON_GAP);
 }
 
-void br_result_open(br_result *result, int finished, int stars, float time,
-                    float best_time, int is_record)
+void br_result_open(br_result *result, int finished, int has_next, int stars,
+                    float time, float best_time, int is_record)
 {
     result->finished = finished;
+    result->has_next = has_next;
     result->stars = stars;
     result->time = time;
     result->best_time = best_time;
@@ -37,7 +38,7 @@ void br_result_open(br_result *result, int finished, int stars, float time,
     /* After a crash there is no next level, so offering both "try again" and
      * "repeat" would be the same button twice. */
     br_iconbar_clear(&result->bar);
-    if (finished)
+    if (finished && has_next)
         br_iconbar_add(&result->bar, &result->art->t_icon_next, "Next");
     br_iconbar_add(&result->bar, &result->art->t_icon_retry,
                    finished ? "Repeat" : "Try again");
@@ -62,8 +63,9 @@ br_result_action br_result_update(br_result *result, const br_input *in, float d
 
     if (chosen < 0)
         return BR_RESULT_NOTHING;
-    if (!result->finished)
-        chosen++;              /* the rows shift up without a "next" */
+    /* The buttons shift up by one whenever "next" is not offered. */
+    if (!(result->finished && result->has_next))
+        chosen++;
     return chosen == 0 ? BR_RESULT_NEXT
                        : (chosen == 1 ? BR_RESULT_REPEAT : BR_RESULT_MENU);
 }

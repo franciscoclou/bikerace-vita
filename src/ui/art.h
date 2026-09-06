@@ -24,10 +24,10 @@ typedef struct {
     /* The game's own round buttons, used for the choices after a run and in
      * the pause screen, plus the dirt-track dressing. */
     br_image   icon_retry, icon_next, icon_list, icon_play, icon_controls;
-    br_image   tiremarks, label, lock;
+    br_image   tiremarks, label, lock, toggle_on, toggle_off;
     br_texture t_icon_retry, t_icon_next, t_icon_list, t_icon_play;
     br_texture t_icon_controls;
-    br_texture t_tiremarks, t_label, t_lock;
+    br_texture t_tiremarks, t_label, t_lock, t_toggle_on, t_toggle_off;
 
     /* Wheels, indexed by br_wheel_kind. Cropped out of a world atlas by
      * scripts/extract_assets.sh so the menus never load one. */

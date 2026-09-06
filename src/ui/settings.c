@@ -8,15 +8,15 @@
 #include "theme.h"
 
 #define PANEL_W 520.0f
-#define PANEL_H 424.0f
-#define PANEL_Y  60.0f
+#define PANEL_H 416.0f
+#define PANEL_Y  54.0f
 
 #define OPTION_W 420.0f
-#define OPTION_H  56.0f
-#define OPTION_GAP 12.0f
-#define OPTION_TOP 144.0f
+#define OPTION_H  54.0f
+#define OPTION_GAP 10.0f
+#define OPTION_TOP 130.0f
 
-enum { ROW_SOUND = 0, ROW_MUSIC, ROW_CONTROLS, ROW_UNLOCK, ROW_RESET, ROW_BACK };
+enum { ROW_SOUND = 0, ROW_MUSIC, ROW_CONTROLS, ROW_UNLOCK, ROW_RESET };
 
 void br_settings_init(br_settings *settings, const br_ui_art *art)
 {
@@ -24,8 +24,8 @@ void br_settings_init(br_settings *settings, const br_ui_art *art)
     settings->art = art;
     br_option_list_init(&settings->list, (BR_UI_W - OPTION_W) * 0.5f, OPTION_TOP,
                         OPTION_W, OPTION_H, OPTION_GAP);
-    br_option_list_init(&settings->confirm_list, (BR_UI_W - 300.0f) * 0.5f,
-                        300.0f, 300.0f, 54.0f, 12.0f);
+    br_option_list_init(&settings->confirm_list, (BR_UI_W - 320.0f) * 0.5f,
+                        262.0f, 320.0f, 54.0f, 12.0f);
 }
 
 static void rebuild(br_settings *settings)
@@ -33,14 +33,15 @@ static void rebuild(br_settings *settings)
     int selected = settings->list.selected;
 
     br_option_list_clear(&settings->list);
-    br_option_list_add(&settings->list, "Sound",
-                       settings->save->sound_on ? "On" : "Off");
-    br_option_list_add(&settings->list, "Music",
-                       settings->save->music_on ? "On" : "Off");
+    br_option_list_add_switch(&settings->list, "Sound",
+                              settings->save->sound_on ? &settings->art->t_toggle_on
+                                                       : &settings->art->t_toggle_off);
+    br_option_list_add_switch(&settings->list, "Music",
+                              settings->save->music_on ? &settings->art->t_toggle_on
+                                                       : &settings->art->t_toggle_off);
     br_option_list_add(&settings->list, "Controls", NULL);
     br_option_list_add(&settings->list, "Unlock everything", NULL);
     br_option_list_add(&settings->list, "Reset progress", NULL);
-    br_option_list_add(&settings->list, "Back", NULL);
     settings->list.selected = selected;
 }
 
@@ -124,8 +125,6 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
     case ROW_RESET:
         ask(settings, BR_CONFIRM_RESET);
         break;
-    case ROW_BACK:
-        return BR_SETTINGS_CLOSE;
     default:
         break;
     }

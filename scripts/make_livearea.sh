@@ -14,23 +14,8 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 cd "$REPO_ROOT"
-SRC="apk/res/drawable-xhdpi/icon.png"
-[ -f "$SRC" ] || { echo "!! missing $SRC" >&2; exit 1; }
-
 mkdir -p sce_sys/livearea/contents
-
-# PNG8: forces palette output; -strip drops colour-profile chunks we do not
-# want the Vita's decoder to have to deal with.
-convert "$SRC" -resize 128x128! -background black -alpha remove -alpha off \
-        -strip -dither FloydSteinberg -colors 256 PNG8:sce_sys/icon0.png
-
-convert "$SRC" -resize 280x158^ -gravity center -extent 280x158 \
-        -background black -alpha remove -alpha off \
-        -strip -dither FloydSteinberg -colors 256 PNG8:sce_sys/livearea/contents/startup.png
-
-convert "$SRC" -resize 840x500^ -gravity center -extent 840x500 -blur 0x12 -modulate 70 \
-        -background black -alpha remove -alpha off \
-        -strip -dither FloydSteinberg -colors 256 PNG8:sce_sys/livearea/contents/bg.png
+tools/makelivearea.py sce_sys
 
 # Fail loudly rather than shipping a VPK that will not install.
 python3 "$REPO_ROOT/scripts/check_sce_sys.py"
