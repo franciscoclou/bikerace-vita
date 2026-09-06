@@ -308,9 +308,27 @@ from those exactly as the original derived them for a replay bike, so a ghost
 needs no physics of its own. Runs past 80 seconds are not recorded rather than
 truncated.
 
+The run never records a wheel angle, so the ghost's wheels are rolled from the
+distance travelled, summed along the path as it records. Anything that changes
+the level or the ghost has to call `refresh_ghost()`: the ghost's bike sprite
+is loaded once, so a record set on a different bike would otherwise keep
+drawing the old one until the level was re-entered.
+
 Ghosts live in `ux0:data/bikerace/ghosts.bin`, apart from `save.bin`, so a
 damaged ghost can never cost anyone their progress. Pause offers a switch to
 hide it, and only when the level has one.
+
+## LiveArea
+
+The gate -- the button you press to launch -- cannot be placed freely. Its
+position comes from the `style` attribute, and of the documented styles `a1`
+centres it and `psmobile` puts it on the right; **none place it on the left**.
+So the background is mirrored and `psmobile` is used, which puts the rider on
+the left facing the gate instead of being covered by it. Styles a2 to a5 exist
+but are undocumented, and a wrong one costs a full reinstall to find out.
+
+Regenerate with `./scripts/make_livearea.sh`, which also writes the
+template.xml so the style and the mirroring cannot drift apart.
 
 ## Level data
 

@@ -16,9 +16,9 @@
 
 #define WORLD_COLS   5
 #define WORLD_TILE_W 168.0f
-#define WORLD_TILE_H  92.0f
-#define WORLD_GAP     12.0f
-#define WORLD_TOP     92.0f
+#define WORLD_TILE_H  86.0f
+#define WORLD_GAP     10.0f
+#define WORLD_TOP     88.0f
 
 #define LEVEL_COLS   4
 #define LEVEL_TILE_W 200.0f
@@ -290,16 +290,17 @@ static grid grid_for(br_menu *menu, const br_level_pack *pack)
  * land on the same thing -- so a mis-touch can be slid off and released. */
 static int touch_target_now(const br_menu *menu, const br_input *in, int count)
 {
+    /* Every screen has the same way out, so the button is checked on all of
+     * them -- and before the tiles, since it overlaps the bottom row. */
+    if (over_back_button(in->touch_ui_x, in->touch_ui_y))
+        return BR_TOUCH_BACK;
+
     switch (menu->screen) {
     case BR_MENU_WORLDS:
         return world_tile_at(in->touch_ui_x, in->touch_ui_y, count);
     case BR_MENU_BIKES:
-        if (over_back_button(in->touch_ui_x, in->touch_ui_y))
-            return BR_TOUCH_BACK;
         return bike_tile_at(in->touch_ui_x, in->touch_ui_y, count);
     default:
-        if (over_back_button(in->touch_ui_x, in->touch_ui_y))
-            return BR_TOUCH_BACK;
         return level_tile_at(in->touch_ui_x, in->touch_ui_y, count);
     }
 }
@@ -608,7 +609,7 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
                            WORLD_TILE_W - 34.0f, WORLD_TILE_H - 34.0f);
     }
 
-    br_hints_draw(hints, 2, body, 24.0f, SCREEN_H - 40.0f, 26.0f, &BR_TEXT);
+    draw_back_button(menu, body, hints, 2);
 }
 
 static void draw_levels(const br_menu *menu, const br_level_pack *pack,

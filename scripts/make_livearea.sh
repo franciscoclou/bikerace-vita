@@ -17,6 +17,20 @@ cd "$REPO_ROOT"
 mkdir -p sce_sys/livearea/contents
 tools/makelivearea.py sce_sys
 
+# psmobile is the only documented style that does not centre the gate; a1
+# centres it and nothing documented puts it on the left.
+cat > sce_sys/livearea/contents/template.xml <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<livearea style="psmobile" format-ver="01.00" content-rev="1">
+  <livearea-background>
+    <image>bg.png</image>
+  </livearea-background>
+  <gate>
+    <startup-image>startup.png</startup-image>
+  </gate>
+</livearea>
+XML
+
 # Fail loudly rather than shipping a VPK that will not install.
 python3 "$REPO_ROOT/scripts/check_sce_sys.py"
 

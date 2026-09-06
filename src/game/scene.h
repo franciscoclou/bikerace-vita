@@ -46,6 +46,7 @@ typedef struct {
     int          active;
     vec2         pos;          /* the rider's head, as Bike stores it */
     float        angle_deg;
+    float        wheel_deg;
     br_bike_type bike;
 } br_ghost_pose;
 

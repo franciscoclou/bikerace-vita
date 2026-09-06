@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 #include "../platform/fs.h"
@@ -29,6 +30,32 @@ static br_ghost *slot(const br_ghost_store *store, int world, int level)
     return &store->ghosts[world * store->levels_per_world + level];
 }
 
+/* Path length up to each sample, so a wheel can be rolled the right amount
+ * without the run having recorded one. */
+static void sum_distances(br_ghost_sample *samples, int count)
+{
+    float total = 0.0f;
+    int i;
+
+    if (count <= 0)
+        return;
+    samples[0].distance = 0.0f;
+    for (i = 1; i < count; i++) {
+        float dx = samples[i].pos.x - samples[i - 1].pos.x;
+        float dy = samples[i].pos.y - samples[i - 1].pos.y;
+
+        total += sqrtf(dx * dx + dy * dy);
+        samples[i].distance = total;
+    }
+}
+
+/* Rolling contact: the wheel turns by the distance over its radius. Moving
+ * forward spins it clockwise, which is negative with y up. */
+static float wheel_degrees(float distance)
+{
+    return -(distance / (BR_BIKE_WHEEL_DIAMETER * 0.5f)) * (180.0f / 3.1415927f);
+}
+
 /* ------------------------------------------------------------- recording -- */
 
 void br_ghost_record_begin(br_ghost_recorder *rec)
@@ -50,11 +77,22 @@ void br_ghost_record_tick(br_ghost_recorder *rec, float elapsed,
 
     rec->samples[rec->count].pos = *head;
     rec->samples[rec->count].angle_deg = angle_deg;
+    if (rec->count == 0) {
+        rec->samples[0].distance = 0.0f;
+    } else {
+        const br_ghost_sample *prev = &rec->samples[rec->count - 1];
+        float dx = head->x - prev->pos.x;
+        float dy = head->y - prev->pos.y;
+
+        rec->samples[rec->count].distance =
+            prev->distance + sqrtf(dx * dx + dy * dy);
+    }
     rec->count++;
     rec->next_sample_at += 1.0f / (float)BR_GHOST_HZ;
 }
 
-int br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos, float *angle_deg)
+int br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos,
+                     float *angle_deg, float *wheel_deg)
 {
     float exact, blend;
     int index;
@@ -68,6 +106,8 @@ int br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos, float *angle_
         /* Past the end: hold the finish pose rather than vanishing. */
         *pos = ghost->samples[ghost->count - 1].pos;
         *angle_deg = ghost->samples[ghost->count - 1].angle_deg;
+        if (wheel_deg)
+            *wheel_deg = wheel_degrees(ghost->samples[ghost->count - 1].distance);
         return 0;
     }
     if (index < 0)
@@ -87,6 +127,9 @@ int br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos, float *angle_
         pos->x = a->pos.x + (b->pos.x - a->pos.x) * blend;
         pos->y = a->pos.y + (b->pos.y - a->pos.y) * blend;
         *angle_deg = a->angle_deg + delta * blend;
+        if (wheel_deg)
+            *wheel_deg = wheel_degrees(a->distance +
+                                       (b->distance - a->distance) * blend);
     }
     return 1;
 }
@@ -178,6 +221,7 @@ static void load(br_ghost_store *store)
             g->samples[n].pos.y = get_f32(s + 4);
             g->samples[n].angle_deg = get_f32(s + 8);
         }
+        sum_distances(g->samples, g->count);
     }
 
     fclose(f);
@@ -239,6 +283,7 @@ void br_ghost_put(br_ghost_store *store, int world, int level, const br_ghost *r
     }
     memcpy(g->samples, run->samples, sizeof(br_ghost_sample) * (size_t)run->count);
     g->count = run->count;
+    sum_distances(g->samples, g->count);
     g->bike = run->bike;
     g->time = run->time;
     store->dirty = 1;

@@ -20,6 +20,9 @@
 typedef struct {
     vec2  pos;         /* the rider's head, as Bike stores it */
     float angle_deg;
+    /* How far the run has travelled by this sample. Not stored in the file --
+     * it is summed after loading, and it is what spins the ghost's wheels. */
+    float distance;
 } br_ghost_sample;
 
 typedef struct {
@@ -53,7 +56,9 @@ void br_ghost_record_begin(br_ghost_recorder *rec);
 void br_ghost_record_tick(br_ghost_recorder *rec, float elapsed,
                           const vec2 *head, float angle_deg);
 
-/* Where the ghost is at `time`, interpolated. Returns 0 once it has finished. */
-int  br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos, float *angle_deg);
+/* Where the ghost is at `time`, interpolated, and how far its wheels have
+ * rolled by then. Returns 0 once the run has finished. */
+int  br_ghost_pose_at(const br_ghost *ghost, float time, vec2 *pos,
+                      float *angle_deg, float *wheel_deg);
 
 #endif /* BR_GHOST_H */

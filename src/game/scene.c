@@ -334,6 +334,7 @@ static void draw_ghost(br_scene *scene, const br_ghost_pose *ghost)
         v2_add(v2_rotate(&offset, radians), &ghost->pos);
         br_push();
         br_translate(offset.x, offset.y);
+        br_rotate_deg(ghost->wheel_deg);
         br_draw_sprite(&scene->wheel, WHEEL_WIDTH, WHEEL_WIDTH, &FADE);
         br_pop();
     }

@@ -106,6 +106,20 @@ static void resume_race(br_app *app)
     app->screen = BR_APP_RACING;
 }
 
+/* Points the race at this level's ghost and loads the bike it was set on.
+ * Anything that changes the level, or the ghost itself, has to call this: the
+ * sprite is loaded once, so a new record set on a different bike would
+ * otherwise keep drawing the old one until the level was re-entered. */
+static void refresh_ghost(br_app *app, int world, int level)
+{
+    int keep_enabled = app->game.ghost_enabled;
+
+    app->game.ghost = br_ghost_get(app->ghosts, world, level);
+    app->game.ghost_enabled = app->game.ghost != NULL && keep_enabled;
+    br_scene_use_ghost(&app->game.scene,
+                       app->game.ghost ? (int)app->game.ghost->bike : -1);
+}
+
 static void begin_race(br_app *app, int world, int level)
 {
     if (app->game.bike_type != (br_bike_type)app->menu.bike) {
@@ -117,13 +131,10 @@ static void begin_race(br_app *app, int world, int level)
         LOGE("app: could not start %d-%d", world + 1, level + 1);
         return;
     }
+    app->game.ghost_enabled = 1;   /* a fresh level starts showing its ghost */
     br_save_remember_place(&app->save, world, level);
 
-    /* Your best run on this level rides along beside you. */
-    app->game.ghost = br_ghost_get(app->ghosts, world, level);
-    app->game.ghost_enabled = app->game.ghost != NULL;
-    br_scene_use_ghost(&app->game.scene,
-                       app->game.ghost ? (int)app->game.ghost->bike : -1);
+    refresh_ghost(app, world, level);
 
     br_game_audio_music(&app->game.audio, 0);
     app->last_race_state = app->game.state;
@@ -176,6 +187,8 @@ static void show_result(br_app *app)
             br_ghost_put(app->ghosts, app->game.world_index,
                          app->game.level_index, &run);
             br_ghost_store_flush(app->ghosts);
+            /* The record may have been set on a different bike. */
+            refresh_ghost(app, app->game.world_index, app->game.level_index);
         }
     }
 
@@ -302,6 +315,8 @@ static void update_result(br_app *app, const br_input *in, float dt)
             break;
         }
         if (br_game_next_level(&app->game) == 0) {
+            refresh_ghost(app, app->game.world_index, app->game.level_index);
+            app->game.ghost_enabled = app->game.ghost != NULL;
             app->menu.world = app->game.world_index;
             app->menu.level = app->game.level_index;
             br_save_remember_place(&app->save, app->game.world_index,
@@ -408,7 +423,8 @@ void br_app_draw(br_app *app, unsigned time_ms)
             if (app->game.ghost && app->game.ghost_enabled &&
                 app->screen == BR_APP_RACING) {
                 pose.active = br_ghost_pose_at(app->game.ghost, app->game.elapsed,
-                                               &pose.pos, &pose.angle_deg) ||
+                                               &pose.pos, &pose.angle_deg,
+                                               &pose.wheel_deg) ||
                               app->game.elapsed <= app->game.ghost->time;
                 pose.bike = app->game.ghost->bike;
             }

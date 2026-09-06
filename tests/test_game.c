@@ -805,7 +805,7 @@ static void test_ghost(br_game *game)
     br_ghost_store *store;
     br_ghost run;
     vec2 head, pos;
-    float angle;
+    float angle, wheel;
     int i;
 
     begin("ghost recording and playback");
@@ -827,12 +827,49 @@ static void test_ghost(br_game *game)
     run.time = 2.0f;
 
     /* Playback lands between samples rather than snapping to them. */
-    CHECK(br_ghost_pose_at(&run, 0.5f, &pos, &angle), "playback ended early");
+    CHECK(br_ghost_pose_at(&run, 0.5f, &pos, &angle, &wheel),
+          "playback ended early");
     CHECK(fabsf(pos.x - 1.0f) < 0.05f, "at 0.5s the ghost is at x=%.3f, want 1.0",
           pos.x);
     CHECK(fabsf(angle - 5.0f) < 0.4f, "at 0.5s the angle is %.2f, want 5.0", angle);
-    CHECK(!br_ghost_pose_at(&run, 5.0f, &pos, &angle),
+    CHECK(!br_ghost_pose_at(&run, 5.0f, &pos, &angle, &wheel),
           "playback past the end did not report finished");
+
+    /* The wheels roll with the distance travelled, since the run never
+     * recorded a wheel angle of its own. */
+    {
+        vec2 early, late;
+        float a_early, a_late, w_early, w_late;
+
+        br_ghost_pose_at(&run, 0.1f, &early, &a_early, &w_early);
+        br_ghost_pose_at(&run, 1.5f, &late, &a_late, &w_late);
+        CHECK(late.x > early.x, "the test run does not move");
+        CHECK(w_late < w_early - 90.0f,
+              "the wheels turned %.1f degrees over 1.4s of travel; they should "
+              "roll with the distance", w_early - w_late);
+    }
+
+    /* A ghost that never moves has still wheels. */
+    {
+        br_ghost_recorder still;
+        br_ghost parked;
+        vec2 p;
+        float a, w0, w1;
+
+        br_ghost_record_begin(&still);
+        v2_set(&head, 3.0f, 1.0f);
+        for (i = 0; i < 60; i++)
+            br_ghost_record_tick(&still, (float)i / 60.0f, &head, 0.0f);
+        parked.samples = still.samples;
+        parked.count = still.count;
+        parked.bike = BR_BIKE_REGULAR;
+        parked.time = 1.0f;
+
+        br_ghost_pose_at(&parked, 0.1f, &p, &a, &w0);
+        br_ghost_pose_at(&parked, 0.8f, &p, &a, &w1);
+        CHECK(fabsf(w1 - w0) < 0.01f,
+              "a parked ghost's wheels turned %.2f degrees", w1 - w0);
+    }
 
     /* A run too long to hold leaves the recorder marked rather than truncating
      * silently. */
@@ -1035,6 +1072,21 @@ static void test_menu_touch(br_game *game)
     in.touch_ended = 1;
     CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save) == BR_MENU_PLAY,
           "lifting off a level tile did not start it");
+
+    /* The world list has the same way out, and it leaves the menu entirely. */
+    br_menu_open_worlds(&menu);
+    memset(&in, 0, sizeof(in));
+    br_menu_back_button_rect(&bx, &by, &bsize);
+    in.touch_ui_x = bx + bsize * 0.5f;
+    in.touch_ui_y = by + bsize * 0.5f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save) ==
+          BR_MENU_BACK, "the world list's back button did not leave the menu");
 
     /* The back button returns to the world list. */
     br_menu_open_levels(&menu, 3);
