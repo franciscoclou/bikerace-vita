@@ -58,7 +58,7 @@ void br_menu_open_levels(br_menu *menu, int world);
 void br_menu_open_bikes(br_menu *menu);
 
 br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
-                              const br_level_pack *pack);
+                              const br_level_pack *pack, const br_save *save);
 void br_menu_draw(const br_menu *menu, const br_level_pack *pack,
                   const br_save *save, const br_font *display, const br_font *body);
 

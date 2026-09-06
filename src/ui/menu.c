@@ -305,7 +305,7 @@ static int touch_target_now(const br_menu *menu, const br_input *in, int count)
 }
 
 br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
-                              const br_level_pack *pack)
+                              const br_level_pack *pack, const br_save *save)
 {
     grid g = grid_for(menu, pack);
     int commit = 0, back = 0;
@@ -362,6 +362,8 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
             return BR_MENU_STAY;
         }
         if (commit) {
+            if (!br_save_world_unlocked(save, menu->world))
+                return BR_MENU_STAY;      /* not enough stars yet */
             br_menu_open_levels(menu, menu->world);
             return BR_MENU_STAY;
         }
@@ -421,6 +423,16 @@ static void draw_tile(const br_menu *menu, const br_texture *tex, const br_color
                                14.0f, &BR_HIGHLIGHT);
         br_fill_round_rect(x, y, w, h, 12.0f, selected ? &BR_TILE_SEL : &BR_PANEL);
     }
+}
+
+static void draw_lock(const br_menu *menu, float cx, float cy, float size)
+{
+    if (br_ui_has(&menu->art->t_lock))
+        br_draw_rect(cx - size * 0.5f, cy - size * 0.5f,
+                     cx + size * 0.5f, cy + size * 0.5f, &menu->art->t_lock, NULL);
+    else
+        br_fill_round_rect(cx - size * 0.3f, cy - size * 0.3f, size * 0.6f,
+                           size * 0.6f, size * 0.15f, &BR_INK);
 }
 
 static void draw_stars(const br_menu *menu, float x, float y, float size,
@@ -544,11 +556,13 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
 
     for (i = 0; i < pack->world_count; i++) {
         int selected = i == menu->world;
+        int open = br_save_world_unlocked(save, i);
         float x, y;
 
         tile_origin(i, WORLD_COLS, WORLD_TILE_W, WORLD_TILE_H, WORLD_GAP,
                     WORLD_TOP, &x, &y);
-        draw_tile(menu, &menu->art->t_world_tile, selected ? &BR_TILE_SEL : NULL,
+        draw_tile(menu, &menu->art->t_world_tile,
+                  selected ? &BR_TILE_SEL : (open ? NULL : &BR_LOCKED),
                   x, y, WORLD_TILE_W, WORLD_TILE_H, selected);
 
         snprintf(text, sizeof(text), "%d", pack->worlds[i].id);
@@ -556,10 +570,22 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
         br_font_draw_centered(body, br_world_name(i), x + WORLD_TILE_W * 0.5f,
                               y + 34.0f, 25.0f, &BR_INK);
 
-        snprintf(text, sizeof(text), "%d/%d", br_save_world_stars(save, i),
-                 pack->worlds[i].level_count * 3);
-        br_font_draw_centered(body, text, x + WORLD_TILE_W * 0.5f, y + 62.0f,
-                              23.0f, &BR_INK);
+        if (open) {
+            snprintf(text, sizeof(text), "%d/%d", br_save_world_stars(save, i),
+                     pack->worlds[i].level_count * 3);
+            br_font_draw_centered(body, text, x + WORLD_TILE_W * 0.5f, y + 62.0f,
+                                  23.0f, &BR_INK);
+        } else {
+            /* Say what it costs, not just that it is shut. */
+            draw_lock(menu, x + WORLD_TILE_W * 0.5f - 32.0f, y + 70.0f, 30.0f);
+            snprintf(text, sizeof(text), "%d", br_save_world_requirement(i));
+            br_font_draw(body, text, x + WORLD_TILE_W * 0.5f - 12.0f, y + 58.0f,
+                         23.0f, &BR_INK);
+            if (br_ui_has(&menu->art->t_star_on))
+                br_draw_rect(x + WORLD_TILE_W * 0.5f + 18.0f, y + 58.0f,
+                             x + WORLD_TILE_W * 0.5f + 42.0f, y + 82.0f,
+                             &menu->art->t_star_on, NULL);
+        }
     }
 
     /* The cell after the last world shows the bike you are riding, and opens
@@ -606,13 +632,22 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
         const br_level_progress *progress =
             br_save_level((br_save *)save, menu->world, i);
         int selected = i == menu->level;
+        int open = br_save_level_unlocked(save, menu->world, i);
         float x, y;
 
         tile_origin(i, LEVEL_COLS, LEVEL_TILE_W, LEVEL_TILE_H, LEVEL_GAP,
                     LEVEL_TOP, &x, &y);
         draw_tile(menu, selected ? &menu->art->t_level_tile_active
                                  : &menu->art->t_level_tile,
-                  NULL, x, y, LEVEL_TILE_W, LEVEL_TILE_H, selected);
+                  open ? NULL : &BR_LOCKED, x, y, LEVEL_TILE_W, LEVEL_TILE_H,
+                  selected);
+
+        if (!open) {
+            draw_lock(menu, x + LEVEL_TILE_W * 0.5f, y + LEVEL_TILE_H * 0.5f, 62.0f);
+            snprintf(text, sizeof(text), "%d", i + 1);
+            br_font_draw(display, text, x + 14.0f, y + 12.0f, 26.0f, &BR_TEXT_DIM);
+            continue;
+        }
 
         /* Header, then the track, then the stars: even bands rather than one
          * crowded at the top and one falling off the bottom. */

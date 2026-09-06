@@ -100,11 +100,11 @@ void br_result_draw(const br_result *result, const br_font *display,
     br_ui_begin();
     br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
 
+    /* The result window has its own tyre-marked paper; it only wants the frame. */
+    br_ui_panel(result->art, x, PANEL_Y, PANEL_W, PANEL_H);
     if (br_ui_has(&result->art->t_result))
         br_draw_rect(x, PANEL_Y, x + PANEL_W, PANEL_Y + PANEL_H,
                      &result->art->t_result, NULL);
-    else
-        br_fill_round_rect(x, PANEL_Y, PANEL_W, PANEL_H, 16.0f, &BR_PANEL);
 
     br_font_draw_centered(display, result->finished ? "COMPLETE" : "CRASHED",
                           BR_UI_W * 0.5f, PANEL_Y + 16.0f, 38.0f, &BR_INK);

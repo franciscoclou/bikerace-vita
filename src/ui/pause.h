@@ -20,6 +20,7 @@ typedef enum {
 typedef struct {
     const br_ui_art *art;
     br_iconbar       bar;
+    int              showing_controls;
 } br_pause;
 
 void br_pause_init(br_pause *pause, const br_ui_art *art);

@@ -70,6 +70,11 @@ void  br_stroke_circle(float cx, float cy, float radius, float thickness,
                        const br_color *color);
 void  br_fill_line(float x0, float y0, float x1, float y1, float thickness,
                    const br_color *color);
+/* Nine-slice: corners stay their own size, edges and centre stretch. Lets the
+ * game's rounded tile art become a button of any shape without smearing its
+ * bevel. `border` is in source pixels. */
+void  br_draw_nine(const br_texture *tex, float border,
+                   float x, float y, float w, float h, const br_color *color);
 void  br_draw_mesh(const br_mesh *mesh);
 /* Loose triangles, for batching many quads into one call. */
 void  br_draw_triangles(const float *xy, const float *uv, int vertex_count,

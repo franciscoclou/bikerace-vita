@@ -198,3 +198,31 @@ void br_font_draw_right(const br_font *font, const char *text, float right, floa
 {
     br_font_draw(font, text, right - br_font_width(font, text, px), y, px, color);
 }
+
+void br_font_draw_outlined(const br_font *font, const char *text, float x, float y,
+                           float px, int align, const br_color *color,
+                           const br_color *outline)
+{
+    /* Eight offsets rather than four: a diagonal-only ring leaves gaps on
+     * stems, and the strings here are short enough that the cost is nothing. */
+    static const float ring[8][2] = {
+        { -1.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, -1.0f }, { 0.0f, 1.0f },
+        { -1.0f, -1.0f }, { 1.0f, -1.0f }, { -1.0f, 1.0f }, { 1.0f, 1.0f },
+    };
+    float spread = px * 0.055f;
+    float left = x;
+    int i;
+
+    if (align == 0)
+        left = x - br_font_width(font, text, px) * 0.5f;
+    else if (align > 0)
+        left = x - br_font_width(font, text, px);
+
+    if (spread < 1.5f)
+        spread = 1.5f;
+
+    for (i = 0; i < 8; i++)
+        br_font_draw(font, text, left + ring[i][0] * spread,
+                     y + ring[i][1] * spread, px, outline);
+    br_font_draw(font, text, left, y, px, color);
+}

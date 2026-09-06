@@ -241,6 +241,13 @@ growing its own. The button reference lives once in `src/ui/controls.c`, since
 settings shows all of it and pause shows only the race half. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
 primitives in `src/ui/glyphs.c`, since a touch game shipped none.
 
+Buttons are the game's own level tile nine-sliced (`br_draw_nine`), so the
+bevel keeps its shape at any size. Modals are the game's paper set into a
+mud-brown frame via `br_ui_panel`. The in-race HUD has no panels at all: it
+draws straight onto the game with a dark ring behind the text
+(`br_font_draw_outlined`), because a panel there covers artwork and plain text
+disappears into a bright sky.
+
 ## Sound
 
 `GameAudio`'s engine is five recorded notes crossfaded by a state machine, not
@@ -269,9 +276,23 @@ Text is drawn from the two faces the APK ships, baked into glyph atlases by
 Keeping them in the binary means text works before anything has been copied to
 `ux0:data`, which is what makes an on-screen error message possible at all.
 
-Progress lives in `ux0:data/bikerace/save.bin` — stars and best time per level,
-plus where to reopen the menu. A missing or unrecognised file is not an error;
-it just looks like a first run.
+Progress lives in `ux0:data/bikerace/save.bin` — stars, best time and unlock
+state per level, plus where to reopen the menu. A missing or unrecognised file
+is not an error; it just looks like a first run.
+
+Gating follows the original: finishing a level opens the next, rolling into the
+next world, and a world needs a running star total — 12, 28, 44 and so on to
+228 for world 12, and 66 for the seasonal ones. **World 16 is absent from the
+original's table**, so it costs nothing; that quirk is kept on purpose. The
+original also gated worlds behind multiplayer wins, invited friends and bikes
+bought from the shop, none of which exist here, so only the star totals
+survive.
+
+Settings can unlock everything or reset progress, each behind a confirmation
+that defaults to "no". Reset clears stars, times and locks but leaves the sound
+and music settings and the chosen bike alone — those are preferences, not
+something that was earned. Saves written before gating existed have their
+unlocks worked out from which levels have stars.
 
 ## Level data
 

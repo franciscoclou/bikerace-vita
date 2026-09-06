@@ -8,15 +8,15 @@
 #include "theme.h"
 
 #define PANEL_W 520.0f
-#define PANEL_H 360.0f
-#define PANEL_Y  92.0f
+#define PANEL_H 424.0f
+#define PANEL_Y  60.0f
 
 #define OPTION_W 420.0f
 #define OPTION_H  56.0f
 #define OPTION_GAP 12.0f
-#define OPTION_TOP 176.0f
+#define OPTION_TOP 144.0f
 
-enum { ROW_SOUND = 0, ROW_MUSIC, ROW_CONTROLS, ROW_BACK };
+enum { ROW_SOUND = 0, ROW_MUSIC, ROW_CONTROLS, ROW_UNLOCK, ROW_RESET, ROW_BACK };
 
 void br_settings_init(br_settings *settings, const br_ui_art *art)
 {
@@ -24,6 +24,8 @@ void br_settings_init(br_settings *settings, const br_ui_art *art)
     settings->art = art;
     br_option_list_init(&settings->list, (BR_UI_W - OPTION_W) * 0.5f, OPTION_TOP,
                         OPTION_W, OPTION_H, OPTION_GAP);
+    br_option_list_init(&settings->confirm_list, (BR_UI_W - 300.0f) * 0.5f,
+                        300.0f, 300.0f, 54.0f, 12.0f);
 }
 
 static void rebuild(br_settings *settings)
@@ -32,21 +34,36 @@ static void rebuild(br_settings *settings)
 
     br_option_list_clear(&settings->list);
     br_option_list_add(&settings->list, "Sound",
-                       *settings->sound_on ? "On" : "Off");
+                       settings->save->sound_on ? "On" : "Off");
     br_option_list_add(&settings->list, "Music",
-                       *settings->music_on ? "On" : "Off");
+                       settings->save->music_on ? "On" : "Off");
     br_option_list_add(&settings->list, "Controls", NULL);
+    br_option_list_add(&settings->list, "Unlock everything", NULL);
+    br_option_list_add(&settings->list, "Reset progress", NULL);
     br_option_list_add(&settings->list, "Back", NULL);
     settings->list.selected = selected;
 }
 
-void br_settings_open(br_settings *settings, int *sound_on, int *music_on,
-                      int *changed)
+static void ask(br_settings *settings, br_settings_confirm what)
 {
-    settings->sound_on = sound_on;
-    settings->music_on = music_on;
-    settings->changed = changed;
+    settings->confirming = what;
+    br_option_list_clear(&settings->confirm_list);
+    /* "No" first, so a stray Cross cannot wipe a save. */
+    br_option_list_add(&settings->confirm_list, "No, go back", NULL);
+    br_option_list_add(&settings->confirm_list,
+                       what == BR_CONFIRM_RESET ? "Yes, erase it"
+                                                : "Yes, unlock it all", NULL);
+    settings->confirm_list.selected = 0;
+    settings->confirm_list.held_y = 0;
+    settings->confirm_list.repeat_delay = 0.0f;
+    settings->confirm_list.touch_target = BR_OPTION_NONE;
+}
+
+void br_settings_open(br_settings *settings, br_save *save)
+{
+    settings->save = save;
     settings->showing_controls = 0;
+    settings->confirming = BR_CONFIRM_NONE;
     settings->list.selected = 0;
     settings->list.held_y = 0;
     settings->list.repeat_delay = 0.0f;
@@ -65,23 +82,47 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
         return BR_SETTINGS_NOTHING;
     }
 
+    if (settings->confirming != BR_CONFIRM_NONE) {
+        int answer = br_option_list_update(&settings->confirm_list, in, dt);
+
+        if (in->back_pressed)
+            answer = 0;
+        if (answer == 1) {
+            if (settings->confirming == BR_CONFIRM_RESET)
+                br_save_reset_progress(settings->save);
+            else
+                br_save_unlock_everything(settings->save);
+        }
+        if (answer >= 0) {
+            settings->confirming = BR_CONFIRM_NONE;
+            rebuild(settings);
+        }
+        return BR_SETTINGS_NOTHING;
+    }
+
     chosen = br_option_list_update(&settings->list, in, dt);
     if (in->back_pressed)
         return BR_SETTINGS_CLOSE;
 
     switch (chosen) {
     case ROW_SOUND:
-        *settings->sound_on = !*settings->sound_on;
-        *settings->changed = 1;
+        settings->save->sound_on = !settings->save->sound_on;
+        settings->save->dirty = 1;
         rebuild(settings);
         break;
     case ROW_MUSIC:
-        *settings->music_on = !*settings->music_on;
-        *settings->changed = 1;
+        settings->save->music_on = !settings->save->music_on;
+        settings->save->dirty = 1;
         rebuild(settings);
         break;
     case ROW_CONTROLS:
         settings->showing_controls = 1;
+        break;
+    case ROW_UNLOCK:
+        ask(settings, BR_CONFIRM_UNLOCK);
+        break;
+    case ROW_RESET:
+        ask(settings, BR_CONFIRM_RESET);
         break;
     case ROW_BACK:
         return BR_SETTINGS_CLOSE;
@@ -94,10 +135,7 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
 static void draw_panel(const br_settings *settings, float x, float y,
                        float w, float h)
 {
-    if (br_ui_has(&settings->art->t_panel))
-        br_draw_rect(x, y, x + w, y + h, &settings->art->t_panel, NULL);
-    else
-        br_fill_round_rect(x, y, w, h, 14.0f, &BR_PANEL);
+    br_ui_panel(settings->art, x, y, w, h);
 }
 
 static void draw_controls(const br_settings *settings, const br_font *display,
@@ -137,11 +175,31 @@ void br_settings_draw(const br_settings *settings, const br_font *display,
         return;
     }
 
+    if (settings->confirming != BR_CONFIRM_NONE) {
+        float cw = 460.0f, cx = (BR_UI_W - cw) * 0.5f;
+
+        draw_panel(settings, cx, 150.0f, cw, 260.0f);
+        br_font_draw_centered(display, "ARE YOU SURE?", BR_UI_W * 0.5f, 172.0f,
+                              34.0f, &BR_INK);
+        br_font_draw_centered(body,
+                              settings->confirming == BR_CONFIRM_RESET
+                                  ? "Every star and best time will be lost."
+                                  : "Every world opens. This cannot be undone.",
+                              BR_UI_W * 0.5f, 224.0f, 22.0f, &BR_INK);
+        br_option_list_draw(&settings->confirm_list, body, 26.0f,
+                            &settings->art->t_level_tile,
+                            &settings->art->t_level_tile_active,
+                            &BR_ROW, &BR_ROW_SELECTED, &BR_TEXT, &BR_TEXT);
+        return;
+    }
+
     draw_panel(settings, x, PANEL_Y, PANEL_W, PANEL_H);
     br_font_draw_centered(display, "SETTINGS", BR_UI_W * 0.5f, PANEL_Y + 24.0f,
                           38.0f, &BR_INK);
-    br_option_list_draw(&settings->list, body, 28.0f, &BR_ROW, &BR_ROW_SELECTED,
-                        &BR_INK);
+    br_option_list_draw(&settings->list, body, 28.0f,
+                        &settings->art->t_level_tile,
+                        &settings->art->t_level_tile_active,
+                        &BR_ROW, &BR_ROW_SELECTED, &BR_TEXT, &BR_TEXT);
 
     br_hints_draw(hints, 2, body,
                   (BR_UI_W - br_hints_width(hints, 2, body, 26.0f)) * 0.5f,

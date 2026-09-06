@@ -106,13 +106,23 @@ int main(int argc, char **argv)
     app.screen = BR_APP_START;
     shoot(&app, dir, "start", 0);
 
-    br_settings_open(&app.settings, &app.save.sound_on, &app.save.music_on,
-                     &app.save.dirty);
+    br_settings_open(&app.settings, &app.save);
     app.screen = BR_APP_SETTINGS;
     shoot(&app, dir, "settings", 0);
     app.settings.showing_controls = 1;
     shoot(&app, dir, "settings_controls", 0);
     app.settings.showing_controls = 0;
+
+    /* The confirmation both destructive actions go through. */
+    app.settings.list.selected = 4;
+    {
+        br_input confirm;
+        memset(&confirm, 0, sizeof(confirm));
+        confirm.confirm_pressed = 1;
+        br_settings_update(&app.settings, &confirm, 1.0f / 60.0f);
+    }
+    shoot(&app, dir, "settings_confirm", 0);
+    app.settings.confirming = BR_CONFIRM_NONE;
 
     app.screen = BR_APP_MENU;
     br_menu_open_worlds(&app.menu);
@@ -122,6 +132,16 @@ int main(int argc, char **argv)
     app.menu.world = app.game.pack.world_count;   /* the bike cell */
     shoot(&app, dir, "menu_worlds_bike_cell", 0);
     app.menu.world = 0;
+
+    /* A fresh save, to see the locks as a new player would. */
+    {
+        br_save fresh;
+        br_save_init(&fresh, app.game.pack.world_count,
+                     app.game.pack.worlds[0].level_count);
+        br_menu_draw(&app.menu, &app.game.pack, &fresh, &app.display, &app.body);
+        br_save_free(&fresh);
+    }
+    shoot(&app, dir, "menu_worlds_locked", 0);
 
     app.menu.world = 15;                    /* Halloween, to show the grid wrap */
     shoot(&app, dir, "menu_worlds_late", 0);
@@ -147,6 +167,10 @@ int main(int argc, char **argv)
     br_pause_open(&app.pause);
     app.screen = BR_APP_PAUSED;
     shoot(&app, dir, "pause", 2500);
+
+    app.pause.showing_controls = 1;
+    shoot(&app, dir, "pause_controls", 2500);
+    app.pause.showing_controls = 0;
 
     br_result_open(&app.result, 1, 3, 9.42f, 11.80f, 1);
     app.screen = BR_APP_RESULT;

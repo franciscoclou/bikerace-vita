@@ -119,6 +119,51 @@ void br_fill_rect(float x, float y, float w, float h, const br_color *color)
     br_draw_rect(x, y, x + w, y + h, &s_white, color);
 }
 
+void br_draw_nine(const br_texture *tex, float border,
+                  float x, float y, float w, float h, const br_color *color)
+{
+    float iw, ih, du, dv;
+    float cx[4], cy[4], cu[4], cv[4];
+    int col, row;
+
+    if (!tex || !tex->image || tex->image->width <= 0 || tex->image->height <= 0) {
+        br_fill_rect(x, y, w, h, color);
+        return;
+    }
+
+    iw = (float)tex->image->width;
+    ih = (float)tex->image->height;
+
+    /* Never let the corners eat more than half the target. */
+    if (border * 2.0f > w) border = w * 0.5f;
+    if (border * 2.0f > h) border = h * 0.5f;
+
+    du = (tex->u1 - tex->u0) * (border / iw);
+    dv = (tex->v1 - tex->v0) * (border / ih);
+
+    cx[0] = x;              cu[0] = tex->u0;
+    cx[1] = x + border;     cu[1] = tex->u0 + du;
+    cx[2] = x + w - border; cu[2] = tex->u1 - du;
+    cx[3] = x + w;          cu[3] = tex->u1;
+
+    cy[0] = y;              cv[0] = tex->v0;
+    cy[1] = y + border;     cv[1] = tex->v0 + dv;
+    cy[2] = y + h - border; cv[2] = tex->v1 - dv;
+    cy[3] = y + h;          cv[3] = tex->v1;
+
+    for (row = 0; row < 3; row++) {
+        for (col = 0; col < 3; col++) {
+            br_texture patch = *tex;
+
+            if (cx[col + 1] <= cx[col] || cy[row + 1] <= cy[row])
+                continue;
+            patch.u0 = cu[col]; patch.u1 = cu[col + 1];
+            patch.v0 = cv[row]; patch.v1 = cv[row + 1];
+            br_draw_rect(cx[col], cy[row], cx[col + 1], cy[row + 1], &patch, color);
+        }
+    }
+}
+
 #define CIRCLE_SEGMENTS 28
 #define UI_SHAPE_MAX_VERTS (CIRCLE_SEGMENTS * 6 + 12)
 

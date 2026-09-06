@@ -7,6 +7,8 @@
 #define REPEAT_FIRST 0.32f
 #define REPEAT_NEXT  0.12f
 #define CORNER       10.0f
+/* The level tile's bevel is about this many pixels of its own art. */
+#define PLATE_BORDER 34.0f
 
 void br_option_list_init(br_option_list *list, float x, float y,
                          float w, float h, float gap)
@@ -112,26 +114,34 @@ int br_option_list_update(br_option_list *list, const br_input *in, float dt)
 }
 
 void br_option_list_draw(const br_option_list *list, const br_font *font,
-                         float text_size, const br_color *row,
-                         const br_color *row_selected, const br_color *ink)
+                         float text_size,
+                         const br_texture *plate, const br_texture *plate_selected,
+                         const br_color *row, const br_color *row_selected,
+                         const br_color *ink, const br_color *ink_selected)
 {
     int i;
 
     for (i = 0; i < list->count; i++) {
         int selected = i == list->selected;
+        const br_texture *art = selected ? plate_selected : plate;
+        const br_color *text = selected ? ink_selected : ink;
         float x, y, w, h;
 
         br_option_list_rect(list, i, &x, &y, &w, &h);
-        br_fill_round_rect(x, y, w, h, CORNER, selected ? row_selected : row);
+
+        if (art && art->image)
+            br_draw_nine(art, PLATE_BORDER, x, y, w, h, NULL);
+        else
+            br_fill_round_rect(x, y, w, h, CORNER, selected ? row_selected : row);
 
         if (list->values[i]) {
-            br_font_draw(font, list->labels[i], x + 22.0f,
-                         y + (h - text_size) * 0.5f, text_size, ink);
-            br_font_draw_right(font, list->values[i], x + w - 22.0f,
-                               y + (h - text_size) * 0.5f, text_size, ink);
+            br_font_draw(font, list->labels[i], x + 26.0f,
+                         y + (h - text_size) * 0.5f, text_size, text);
+            br_font_draw_right(font, list->values[i], x + w - 26.0f,
+                               y + (h - text_size) * 0.5f, text_size, text);
         } else {
             br_font_draw_centered(font, list->labels[i], x + w * 0.5f,
-                                  y + (h - text_size) * 0.5f, text_size, ink);
+                                  y + (h - text_size) * 0.5f, text_size, text);
         }
     }
 }

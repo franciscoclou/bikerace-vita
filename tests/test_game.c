@@ -635,14 +635,96 @@ static void test_save(br_game *game)
     remove("assets_out/save.bin");
 }
 
+static void test_gating(br_game *game)
+{
+    br_save save;
+    int per_world = game->pack.worlds[0].level_count;
+    int w, l;
+
+    begin("progression gating");
+
+    br_save_init(&save, game->pack.world_count, per_world);
+
+    /* A fresh game opens on 1-1 and nothing else. */
+    CHECK(br_save_level_unlocked(&save, 0, 0), "1-1 is not open on a fresh save");
+    CHECK(!br_save_level_unlocked(&save, 0, 1), "1-2 is open before 1-1 is done");
+    CHECK(!br_save_level_unlocked(&save, 1, 0), "2-1 is open with no stars");
+
+    /* Finishing a level opens the next. */
+    br_save_record(&save, 0, 0, 3, 10.0f);
+    br_save_unlock_next(&save, 0, 0);
+    CHECK(br_save_level_unlocked(&save, 0, 1), "finishing 1-1 did not open 1-2");
+    CHECK(!br_save_level_unlocked(&save, 0, 2), "finishing 1-1 opened 1-3 as well");
+
+    /* Finishing the last level of a world rolls into the next world, though
+     * the world's own star gate still applies. */
+    br_save_unlock_next(&save, 0, per_world - 1);
+    CHECK(br_save_level(&save, 1, 0)->unlocked,
+          "the last level of world 1 did not open 2-1");
+    CHECK(!br_save_level_unlocked(&save, 1, 0),
+          "2-1 is playable with %d stars, below the %d it needs",
+          br_save_total_stars(&save), br_save_world_requirement(1));
+
+    /* The original's totals, including world 16 costing nothing. */
+    CHECK(br_save_world_requirement(0) == 0, "world 1 asks for stars");
+    CHECK(br_save_world_requirement(1) == 12, "world 2 wants %d stars, not 12",
+          br_save_world_requirement(1));
+    CHECK(br_save_world_requirement(11) == 228, "world 12 wants %d, not 228",
+          br_save_world_requirement(11));
+    CHECK(br_save_world_requirement(15) == 0,
+          "world 16 wants %d stars; it is absent from the original's table and "
+          "so costs nothing", br_save_world_requirement(15));
+
+    /* Earning enough stars opens the world. */
+    for (l = 0; l < per_world; l++)
+        br_save_record(&save, 0, l, 3, 10.0f);
+    CHECK(br_save_total_stars(&save) == per_world * 3, "star total is wrong");
+    CHECK(br_save_world_unlocked(&save, 1),
+          "world 2 is still shut with %d stars", br_save_total_stars(&save));
+
+    /* Unlocking everything lifts both gates and survives a reload. */
+    br_save_unlock_everything(&save);
+    for (w = 0; w < game->pack.world_count; w++)
+        CHECK(br_save_level_unlocked(&save, w, per_world - 1),
+              "world %d's last level is still shut after unlocking everything",
+              w + 1);
+    br_save_flush(&save);
+    {
+        br_save reloaded;
+        br_save_init(&reloaded, game->pack.world_count, per_world);
+        br_save_load(&reloaded);
+        CHECK(br_save_level_unlocked(&reloaded, 18, 7),
+              "unlocking everything did not survive a reload");
+        br_save_free(&reloaded);
+    }
+
+    /* Reset clears progress but leaves preferences alone. */
+    save.sound_on = 0;
+    save.bike_type = 5;
+    br_save_reset_progress(&save);
+    CHECK(br_save_total_stars(&save) == 0, "reset left %d stars",
+          br_save_total_stars(&save));
+    CHECK(br_save_level_unlocked(&save, 0, 0), "reset closed 1-1");
+    CHECK(!br_save_level_unlocked(&save, 0, 1), "reset left 1-2 open");
+    CHECK(!br_save_world_unlocked(&save, 1), "reset left world 2 open");
+    CHECK(save.sound_on == 0, "reset changed the sound setting");
+    CHECK(save.bike_type == 5, "reset changed the chosen bike");
+
+    br_save_free(&save);
+    remove("assets_out/save.bin");
+}
+
 static void test_menu_navigation(br_game *game)
 {
     br_menu menu;
     br_input in;
+    br_save save;
     int i;
 
     begin("menu navigation");
 
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_unlock_everything(&save);
     memset(&menu, 0, sizeof(menu));
     memset(&in, 0, sizeof(in));
     br_menu_open_worlds(&menu);
@@ -651,13 +733,13 @@ static void test_menu_navigation(br_game *game)
      * Right from it wraps back to the first world. */
     menu.world = game->pack.world_count;
     in.nav_x = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.world == 0, "right from the bike cell went to %d, want 0", menu.world);
 
     /* Held direction must repeat rather than run away. */
     menu.world = 0;
     for (i = 0; i < 10; i++)
-        br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+        br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.world >= 0 && menu.world <= game->pack.world_count,
           "holding right left the selection at %d", menu.world);
     CHECK(menu.world <= 2, "holding right for 1/6 s moved %d places, too fast",
@@ -671,7 +753,7 @@ static void test_menu_navigation(br_game *game)
             menu.world = i;
             menu.held_x = menu.held_y = 99;      /* force a fresh press */
             in.nav_y = dir;
-            br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+            br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
             CHECK(menu.world >= 0 && menu.world <= game->pack.world_count,
                   "moving %s from cell %d left the grid at %d",
                   dir < 0 ? "up" : "down", i, menu.world);
@@ -684,14 +766,16 @@ static void test_menu_navigation(br_game *game)
     br_menu_open_worlds(&menu);
     menu.world = 5;
     in.confirm_pressed = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_LEVELS, "Cross did not open the level list");
     CHECK(menu.world == 5, "opening levels changed the world to %d", menu.world);
 
     in.confirm_pressed = 0;
     in.back_pressed = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_WORLDS, "Circle did not return to the world list");
+
+    br_save_free(&save);
 }
 
 /* Puts a touch at the centre of a tile. */
@@ -713,10 +797,13 @@ static void test_menu_touch(br_game *game)
 {
     br_menu menu;
     br_input in;
+    br_save save;
     float bx, by, bsize;
 
     begin("menu touch");
 
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_unlock_everything(&save);
     memset(&menu, 0, sizeof(menu));
     memset(&in, 0, sizeof(in));
     br_menu_open_worlds(&menu);
@@ -725,14 +812,14 @@ static void test_menu_touch(br_game *game)
     touch_tile(&in, &menu, &game->pack, 7);
     in.touch_active = 1;
     in.touch_began = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.world == 7, "touching world 8 selected %d", menu.world + 1);
     CHECK(menu.screen == BR_MENU_WORLDS, "touching down already opened the levels");
 
     in.touch_began = 0;
     in.touch_active = 0;
     in.touch_ended = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_LEVELS, "lifting off world 8 did not open it");
     CHECK(menu.world == 7, "opening changed the world to %d", menu.world + 1);
 
@@ -742,12 +829,12 @@ static void test_menu_touch(br_game *game)
     touch_tile(&in, &menu, &game->pack, 2);
     in.touch_active = 1;
     in.touch_began = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     in.touch_began = 0;
     in.touch_active = 0;
     in.touch_ended = 1;
     touch_tile(&in, &menu, &game->pack, 9);       /* released somewhere else */
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_WORLDS,
           "releasing on a different tile still opened a world");
 
@@ -758,11 +845,11 @@ static void test_menu_touch(br_game *game)
     in.touch_ui_y = 4.0f;
     in.touch_active = 1;
     in.touch_began = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     in.touch_began = 0;
     in.touch_active = 0;
     in.touch_ended = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_WORLDS, "a tap on empty space opened something");
 
     /* Tapping a level tile plays it. */
@@ -771,12 +858,12 @@ static void test_menu_touch(br_game *game)
     touch_tile(&in, &menu, &game->pack, 4);
     in.touch_active = 1;
     in.touch_began = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.level == 4, "touching level 5 selected %d", menu.level + 1);
     in.touch_began = 0;
     in.touch_active = 0;
     in.touch_ended = 1;
-    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack) == BR_MENU_PLAY,
+    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save) == BR_MENU_PLAY,
           "lifting off a level tile did not start it");
 
     /* The back button returns to the world list. */
@@ -787,12 +874,14 @@ static void test_menu_touch(br_game *game)
     in.touch_ui_y = by + bsize * 0.5f;
     in.touch_active = 1;
     in.touch_began = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     in.touch_began = 0;
     in.touch_active = 0;
     in.touch_ended = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_WORLDS, "the back button did not go back");
+
+    br_save_free(&save);
 }
 
 void br_test_audio_reset(void);
@@ -956,9 +1045,12 @@ static void test_bike_cell(br_game *game)
     br_menu menu;
     br_ui_art art;
     br_input in;
+    br_save save;
 
     begin("the world grid's bike cell");
 
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_unlock_everything(&save);
     memset(&art, 0, sizeof(art));
     br_menu_init(&menu, &art);
     memset(&in, 0, sizeof(in));
@@ -967,7 +1059,7 @@ static void test_bike_cell(br_game *game)
     /* The cell past the last world opens the bike list rather than a world. */
     menu.world = game->pack.world_count;
     in.confirm_pressed = 1;
-    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack);
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
     CHECK(menu.screen == BR_MENU_BIKES, "the bike cell did not open the bike list");
     CHECK(menu.world < game->pack.world_count,
           "leaving the bike cell left world at %d, past the last world",
@@ -983,35 +1075,69 @@ static void test_bike_cell(br_game *game)
     }
 
     br_menu_free(&menu);
+    br_save_free(&save);
 }
 
-static void test_settings_toggles(void)
+static void test_settings_toggles(br_game *game)
 {
     br_settings settings;
     br_ui_art art;
     br_input in;
-    int sound = 1, music = 1, changed = 0;
+    br_save save;
 
     begin("settings toggles");
 
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
     memset(&art, 0, sizeof(art));
     br_settings_init(&settings, &art);
-    br_settings_open(&settings, &sound, &music, &changed);
+    br_settings_open(&settings, &save);
     memset(&in, 0, sizeof(in));
 
     in.confirm_pressed = 1;                 /* row 0 is Sound */
     br_settings_update(&settings, &in, 1.0f / 60.0f);
-    CHECK(sound == 0, "choosing Sound did not turn it off");
-    CHECK(changed, "the change was not flagged for saving");
+    CHECK(save.sound_on == 0, "choosing Sound did not turn it off");
+    CHECK(save.dirty, "the change was not flagged for saving");
 
     br_settings_update(&settings, &in, 1.0f / 60.0f);
-    CHECK(sound == 1, "choosing Sound again did not turn it back on");
+    CHECK(save.sound_on == 1, "choosing Sound again did not turn it back on");
 
     /* Circle closes. */
     in.confirm_pressed = 0;
     in.back_pressed = 1;
     CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) == BR_SETTINGS_CLOSE,
           "Circle did not close the settings");
+
+    /* Reset and unlock both ask first, and default to the harmless answer. */
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    settings.list.selected = 4;                 /* Reset progress */
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(settings.confirming == BR_CONFIRM_RESET, "Reset did not ask first");
+    CHECK(settings.confirm_list.selected == 0,
+          "the confirm defaults to answer %d; it must default to 'no'",
+          settings.confirm_list.selected);
+
+    br_save_record(&save, 0, 0, 3, 9.0f);
+    br_settings_update(&settings, &in, 1.0f / 60.0f);   /* takes 'no' */
+    CHECK(settings.confirming == BR_CONFIRM_NONE, "answering did not close it");
+    CHECK(br_save_total_stars(&save) == 3, "'no' erased the save anyway");
+
+    settings.list.selected = 4;
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    settings.confirm_list.selected = 1;                 /* now say yes */
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(br_save_total_stars(&save) == 0, "'yes' did not reset the progress");
+
+    settings.list.selected = 3;                         /* Unlock everything */
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(settings.confirming == BR_CONFIRM_UNLOCK, "Unlock did not ask first");
+    settings.confirm_list.selected = 1;
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(br_save_level_unlocked(&save, 18, 7),
+          "'yes' did not unlock everything");
+
+    br_save_free(&save);
+    remove("assets_out/save.bin");
 }
 
 static void test_result_actions(void)
@@ -1229,12 +1355,13 @@ int main(int argc, char **argv)
     test_track_mesh(&game);
     test_fonts();
     test_save(&game);
+    test_gating(&game);
     test_menu_navigation(&game);
     test_menu_touch(&game);
     test_world_names(&game);
     test_throttle_lock(&game);
     test_bike_cell(&game);
-    test_settings_toggles();
+    test_settings_toggles(&game);
     test_result_actions();
     test_start_screen();
     test_mixer_long_sounds();
