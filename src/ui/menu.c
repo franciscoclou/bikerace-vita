@@ -1,5 +1,6 @@
 #include "menu.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -30,6 +31,11 @@
 #define REPEAT_FIRST 0.32f
 #define REPEAT_NEXT  0.10f
 
+/* The refusal shake: three passes either side of where the tile sits. */
+#define SHAKE_SECONDS 0.30f
+#define SHAKE_PIXELS   7.0f
+#define SHAKE_RATE    62.8f      /* rad/s -- three full swings in the time */
+
 #define BIKE_COLS   7
 #define BIKE_TILE_W 124.0f
 #define BIKE_TILE_H 104.0f
@@ -57,6 +63,27 @@ static void br_menu_reset_nav(br_menu *menu)
     menu->repeat_delay = 0.0f;
     menu->held_x = menu->held_y = 0;
     menu->touch_target = BR_TOUCH_NONE;
+    menu->refused_time = 0.0f;
+    menu->refused_index = BR_TOUCH_NONE;
+}
+
+/* The press did not take. Say so on the tile itself rather than silently. */
+static void refuse(br_menu *menu, int index)
+{
+    menu->refused_time = SHAKE_SECONDS;
+    menu->refused_index = index;
+}
+
+/* How far the tile at `index` is displaced this frame. Decays to nothing. */
+static float shake_offset(const br_menu *menu, int index)
+{
+    float elapsed, decay;
+
+    if (menu->refused_time <= 0.0f || menu->refused_index != index)
+        return 0.0f;
+    elapsed = SHAKE_SECONDS - menu->refused_time;
+    decay = menu->refused_time / SHAKE_SECONDS;
+    return sinf(elapsed * SHAKE_RATE) * SHAKE_PIXELS * decay;
 }
 
 void br_menu_init(br_menu *menu, const br_ui_art *art)
@@ -308,6 +335,9 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
         *g.selection = 0;
     was_selected = *g.selection;
 
+    if (menu->refused_time > 0.0f)
+        menu->refused_time -= dt;
+
     if (repeated(menu, in, dt))
         move_selection(g.selection, g.count, g.columns, in->nav_x, in->nav_y);
 
@@ -336,14 +366,14 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
         back = 1;
 
     if (*g.selection != was_selected)
-        br_ui_sound_move();
+        br_ui_click();
 
     switch (menu->screen) {
     case BR_MENU_BIKES:
         /* The choice applies as the cursor moves, so either button just
          * returns to wherever the list was opened from. */
         if (commit || back) {
-            br_ui_sound_back();
+            br_ui_click();
             if (menu->came_from == BR_MENU_LEVELS)
                 br_menu_open_levels(menu, menu->world);
             else
@@ -355,39 +385,43 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
         if (in->bikes_pressed || (commit && menu->world >= pack->world_count)) {
             if (menu->world >= pack->world_count)
                 menu->world = pack->world_count - 1;
-            br_ui_sound_select();
+            br_ui_click();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
         if (commit) {
-            /* A shut world stays silent. A click here would say the press
-             * had taken when nothing happened. */
-            if (!br_save_world_unlocked(save, menu->world))
+            /* A shut world does not tick -- a click would say the press had
+             * taken -- but it does shake, so the press is visibly seen. */
+            if (!br_save_world_unlocked(save, menu->world)) {
+                refuse(menu, menu->world);
                 return BR_MENU_STAY;      /* not enough stars yet */
-            br_ui_sound_select();
+            }
+            br_ui_click();
             br_menu_open_levels(menu, menu->world);
             return BR_MENU_STAY;
         }
         if (back)
-            br_ui_sound_back();
+            br_ui_click();
         return back ? BR_MENU_BACK : BR_MENU_STAY;
 
     default:
         if (in->bikes_pressed) {
-            br_ui_sound_select();
+            br_ui_click();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
         if (commit) {
             /* Finish the one before it first. Until this was here the gate
              * only affected how a tile was drawn, not whether it would open. */
-            if (!br_save_level_unlocked(save, menu->world, menu->level))
+            if (!br_save_level_unlocked(save, menu->world, menu->level)) {
+                refuse(menu, menu->level);
                 return BR_MENU_STAY;
-            br_ui_sound_select();
+            }
+            br_ui_click();
             return BR_MENU_PLAY;
         }
         if (back) {
-            br_ui_sound_back();
+            br_ui_click();
             br_menu_open_worlds(menu);
         }
         return BR_MENU_STAY;
@@ -569,6 +603,7 @@ static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
 
         tile_origin(i, WORLD_COLS, WORLD_TILE_W, WORLD_TILE_H, WORLD_GAP,
                     WORLD_TOP, &x, &y);
+        x += shake_offset(menu, i);
         draw_tile(menu, &menu->art->t_world_tile,
                   selected ? &BR_TILE_SEL : (open ? NULL : &BR_LOCKED),
                   x, y, WORLD_TILE_W, WORLD_TILE_H, selected);
@@ -645,6 +680,7 @@ static void draw_levels(const br_menu *menu, const br_level_pack *pack,
 
         tile_origin(i, LEVEL_COLS, LEVEL_TILE_W, LEVEL_TILE_H, LEVEL_GAP,
                     LEVEL_TOP, &x, &y);
+        x += shake_offset(menu, i);
         draw_tile(menu, selected ? &menu->art->t_level_tile_active
                                  : &menu->art->t_level_tile,
                   open ? NULL : &BR_LOCKED, x, y, LEVEL_TILE_W, LEVEL_TILE_H,

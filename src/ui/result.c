@@ -56,14 +56,13 @@ br_result_action br_result_update(br_result *result, const br_input *in, float d
     int chosen = br_iconbar_update(&result->bar, in, dt);
 
     /* The buttons shortcut the row, so nobody has to arrow to the obvious
-     * choice: Circle tries again, Start steps out to the level list. Both are
-     * choices rather than ways out, so both sound like one. */
+     * choice: Circle tries again, Start steps out to the level list. */
     if (in->back_pressed) {
-        br_ui_sound_select();
+        br_ui_click();
         return BR_RESULT_REPEAT;
     }
     if (in->pause_pressed) {
-        br_ui_sound_select();
+        br_ui_click();
         return BR_RESULT_MENU;
     }
 

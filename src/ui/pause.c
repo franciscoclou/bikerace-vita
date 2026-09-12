@@ -49,7 +49,7 @@ br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
     if (pause->showing_controls) {
         if (in->back_pressed || in->confirm_pressed || in->touch_ended) {
             pause->showing_controls = 0;
-            br_ui_sound_back();
+            br_ui_click();
         }
         return BR_PAUSE_NOTHING;
     }
@@ -58,7 +58,7 @@ br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
 
     /* Circle and Start both back out, which is what both do everywhere else. */
     if (in->back_pressed || in->pause_pressed) {
-        br_ui_sound_back();
+        br_ui_click();
         return BR_PAUSE_RESUME;
     }
 

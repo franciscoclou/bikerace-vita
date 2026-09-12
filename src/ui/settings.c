@@ -100,7 +100,7 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
     if (settings->showing_controls) {
         if (back || in->confirm_pressed || in->touch_ended) {
             settings->showing_controls = 0;
-            br_ui_sound_back();
+            br_ui_click();
         }
         return BR_SETTINGS_NOTHING;
     }
@@ -111,7 +111,7 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
 
         if (back) {
             answer = 0;
-            br_ui_sound_back();
+            br_ui_click();
         }
         if (answer == 1) {
             if (settings->confirming == BR_CONFIRM_RESET) {
@@ -130,7 +130,7 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
 
     chosen = br_option_list_update(&settings->list, in, dt);
     if (back) {
-        br_ui_sound_back();
+        br_ui_click();
         return BR_SETTINGS_CLOSE;
     }
 

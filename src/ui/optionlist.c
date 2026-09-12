@@ -132,9 +132,9 @@ int br_option_list_update(br_option_list *list, const br_input *in, float dt)
     /* A tick as the cursor lands, whether a button moved it or a finger
      * dragged across the rows. */
     if (list->selected != was_selected)
-        br_ui_sound_move();
+        br_ui_click();
     if (chosen != BR_OPTION_NONE)
-        br_ui_sound_select();
+        br_ui_click();
     return chosen;
 }
 

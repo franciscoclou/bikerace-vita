@@ -1869,6 +1869,54 @@ static void test_menus_click(void)
     remove("assets_out/save.bin");
 }
 
+
+/* A press the gate refuses shakes the tile. Silence alone reads as the menu
+ * having missed the press rather than having refused it. */
+static void test_locked_tile_shakes(br_game *game)
+{
+    br_menu menu;
+    br_input in;
+    br_save save;
+
+    begin("a refused press shakes the tile");
+
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    memset(&menu, 0, sizeof(menu));
+    br_menu_open_worlds(&menu);
+    menu.world = 1;                     /* world 2 wants 12 stars */
+
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save) ==
+          BR_MENU_STAY, "a locked world opened");
+    CHECK(menu.refused_time > 0.0f, "a refused world did not shake");
+    CHECK(menu.refused_index == 1, "the wrong tile shook");
+
+    /* It runs down on its own. */
+    memset(&in, 0, sizeof(in));
+    br_menu_update(&menu, &in, 0.5f, &game->pack, &save);
+    CHECK(menu.refused_time <= 0.0f, "the shake did not stop");
+
+    /* An accepted press does not shake. */
+    menu.world = 0;
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save);
+    CHECK(menu.screen == BR_MENU_LEVELS, "world 1 did not open");
+    CHECK(menu.refused_time <= 0.0f, "an accepted press shook the tile");
+
+    /* And a locked level shakes its own tile. */
+    menu.level = 3;
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    CHECK(br_menu_update(&menu, &in, 1.0f / 60.0f, &game->pack, &save) ==
+          BR_MENU_STAY, "a locked level started");
+    CHECK(menu.refused_time > 0.0f && menu.refused_index == 3,
+          "a refused level did not shake its own tile");
+
+    br_save_free(&save);
+}
+
 int main(int argc, char **argv)
 {
     br_game game;
@@ -1904,6 +1952,7 @@ int main(int argc, char **argv)
     test_throttle_lock(&game);
     test_bike_cell(&game);
     test_settings_toggles(&game);
+    test_locked_tile_shakes(&game);
     test_settings_touch_back(&game);
     test_save_survives_interrupted_write(&game);
     test_result_actions();

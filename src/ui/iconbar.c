@@ -117,9 +117,9 @@ int br_iconbar_update(br_iconbar *bar, const br_input *in, float dt)
         chosen = bar->selected;
 
     if (bar->selected != was_selected)
-        br_ui_sound_move();
+        br_ui_click();
     if (chosen != BR_ICON_NONE)
-        br_ui_sound_select();
+        br_ui_click();
     return chosen;
 }
 

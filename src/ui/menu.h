@@ -45,6 +45,12 @@ typedef struct {
     /* What the current touch went down on, so a release only counts when it
      * comes up on the same thing. -1 for nothing, -2 for the back button. */
     int   touch_target;
+
+    /* A press on a locked tile shakes it. Without this the gate simply
+     * swallowed the press, which reads as the menu having missed it. The
+     * countdown doubles as the phase, so drawing needs no clock of its own. */
+    float refused_time;
+    int   refused_index;
 } br_menu;
 
 #define BR_TOUCH_NONE (-1)

@@ -282,7 +282,7 @@ static void update_race(br_app *app, const br_input *in, float dt)
 
     if (in->pause_pressed) {
         br_game_audio_silence(&app->game.audio);
-        br_ui_sound_select();
+        br_ui_click();
         br_pause_open(&app->pause, app->game.ghost != NULL, ghost_showing(app));
         app->screen = BR_APP_PAUSED;
         return;
