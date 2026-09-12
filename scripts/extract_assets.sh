@@ -14,6 +14,21 @@ OUT="$REPO_ROOT/assets_out"
 rm -rf "$OUT"
 mkdir -p "$OUT/textures" "$OUT/sfx" "$OUT/music" "$OUT/fonts"
 
+# ImageMagick 7 dropped the standalone `convert` and `identify` binaries from
+# most package managers' default install -- current Homebrew among them -- in
+# favour of `magick convert` / `magick identify`. Take whichever set is
+# actually there instead of assuming the older one.
+if command -v magick >/dev/null 2>&1; then
+  im_convert()  { magick convert "$@"; }
+  im_identify() { magick identify "$@"; }
+elif command -v convert >/dev/null 2>&1 && command -v identify >/dev/null 2>&1; then
+  im_convert()  { convert "$@"; }
+  im_identify() { identify "$@"; }
+else
+  echo "extract_assets.sh: needs ImageMagick (the 'convert'+'identify' or 'magick' commands) -- see the README" >&2
+  exit 1
+fi
+
 # --- textures ---------------------------------------------------------------
 # The gameplay atlases live in drawable-nodpi and are already 2048x2048 or
 # 1024x1024, comfortably under the Vita's 4096 GXM limit, so they are copied
@@ -26,7 +41,7 @@ cp apk/res/drawable-xhdpi/*.png "$OUT/textures/" 2>/dev/null || true
 
 # Anything not a power of two on both axes needs padding before it can be a GXM
 # texture; report them so nothing surprises us at runtime.
-npot="$(identify -format '%w %h\n' "$OUT"/textures/*.png 2>/dev/null | awk '
+npot="$(im_identify -format '%w %h\n' "$OUT"/textures/*.png 2>/dev/null | awk '
   function pot(n) { return n > 0 && and(n, n - 1) == 0 }
   { if (!pot($1) || !pot($2)) c++ } END { print c + 0 }')"
 echo "   $(ls "$OUT"/textures | wc -l) textures ($npot non-power-of-two -- these need atlasing or padding)"
@@ -70,7 +85,7 @@ done
 # regions are the same in every atlas, so world 1's will do.
 ATLAS=apk/res/drawable-nodpi/bikerace_textura1b.png
 crop_wheel() {  # name left top right bottom  (normalised, as TextureCoordinates has them)
-  convert "$ATLAS" -crop \
+  im_convert "$ATLAS" -crop \
     "$(python3 -c "
 import sys
 from PIL import Image
