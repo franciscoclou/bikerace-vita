@@ -1,23 +1,28 @@
 # Bike Race — PS Vita
 
-A from-scratch port of **Bike Race Pro 4.3** (Top Free Games, 2014) to the
+![Start screen](tests/shots/start.png)
+
+A from-scratch port of *Bike Race Pro 4.3* (Top Free Games, 2014) to the
 PlayStation Vita and PlayStation TV.
 
-The original is a pure Java Android game. There is no `lib/*.so` in the APK, so
-there was no native library to hook or wrap — this is a **rewrite in C**,
-written against the decompiled Java and running on vitaGL. The physics is
-reproduced as the original had it, quirks included: a point-mass-and-springs
-model that was never a real solver, and reproducing it exactly is what makes
-the game feel like the game.
+The original ships no native code at all. It's Java on a `GLSurfaceView`, so
+there was nothing at the ABI level to hook or wrap. This is a full rewrite in
+C, built against the decompiled sources and rendered through vitaGL. The
+physics is copied over quirks and all: a point-mass-and-spring model that was
+never a real solver, kept exactly as it was because reproducing it precisely
+is what makes the game still feel like itself.
 
-- **All 19 worlds, 152 levels**, built from the original's own level factories.
-- **60 FPS**, vsync-locked.
-- **Runs on PS Vita and PlayStation TV.** Touch is supported everywhere but
-  required nowhere — every tap has a button beside it.
-- **Ghost replays.** Your best run on a level plays back beside you, faded.
-- **Progress, star gating and best times**, following the original's rules.
-- A **custom interface** built for a controller, since the original shipped a
-  touch-only one and no button glyphs at all.
+![Racing through world 1](tests/shots/race_w01_l1.png)
+
+- All 19 worlds, 152 levels, built straight from the original's own level
+  factories.
+- 60 FPS, vsync locked.
+- Runs on PS Vita and PlayStation TV. Touch works everywhere but isn't
+  required anywhere; every tap has a button next to it.
+- Ghost replays: your best run on a level plays back beside you, faded out.
+- Progress, star gating and best times, following the original's own rules.
+- A controller-first interface, since the original was touch-only and shipped
+  no button prompts at all.
 
 ## Controls
 
@@ -33,62 +38,59 @@ the game feel like the game.
 | Bike list | Triangle |
 | Quit | Exit, on the start screen |
 
-There is **no tilt or gyro control**. The Android original steered with the
-accelerometer; on Vita that range is mapped to the triggers and the left stick
-instead, which is both more precise and the only thing a PlayStation TV can do.
+There's no tilt or gyro control. The Android original steered with the
+accelerometer; here that range maps onto the triggers and the left stick
+instead, which turns out more precise anyway and is the only option a
+PlayStation TV has to begin with.
 
 ---
 
-## ⚖️ Legal
+## Legal
 
-**This repository contains no copyrighted game code, artwork, audio, APK or
-`classes.dex`.** It is the C source of an independent reimplementation, plus
-the scripts that extract data from a copy of the original game that *you* must
-supply.
+**This repository contains no copyrighted game code, artwork, audio, or APK.**
+What's here is the C source of an independent reimplementation, plus scripts
+that pull data out of a copy of the original game that you supply yourself.
 
-Specifically, this repository does **not** contain and will never contain:
+It does not contain, and never will contain:
 
 - the APK, or any part of it
-- `classes.dex`, or any decompiled Java from it
+- `classes.dex`, or any Java decompiled from it
 - the game's textures, sprites, audio or fonts
-- `data/levels.bin` or `data/font_*.bin` — level geometry and glyph atlases
-  baked out of the original. These are required to build and are generated
-  locally by `scripts/dumplevels.sh` and `scripts/makefonts.sh` from your own
-  copy of the APK.
+- `data/levels.bin` or `data/font_*.bin`, the level geometry and font atlases
+  baked out of the original. These are required to build, and are generated
+  locally, from your own copy of the APK, by `scripts/dumplevels.sh` and
+  `scripts/makefonts.sh`.
 
-For completeness, two things here **are** derived from the original and are
-deliberately included, because a Vita homebrew package cannot function or be
-documented without them:
+Two things here *are* derived from the original and are included on purpose,
+because a Vita homebrew package can't work or be documented without them:
 
-- `sce_sys/` — the LiveArea icon and background, built from the game's art.
-  These are baked into the `.vpk` so the app has an icon on the home screen.
-- `tests/shots/` — screenshots of the running game, used as visual regression
+- `sce_sys/`, the LiveArea icon and background built from the game's own art.
+  These get baked into the `.vpk` so the app has an icon on the home screen.
+- `tests/shots/`, screenshots of the running game used as visual regression
   references by `make -C tests shots`.
 
-This project is not affiliated with, endorsed by, or connected to Top Free
-Games. *Bike Race* and all associated artwork remain their property. You must
-own the original game to use this port. No game data is distributed here; the
-port is useless without a copy you provide yourself.
+This project isn't affiliated with, endorsed by, or connected to Top Free
+Games. *Bike Race* and its artwork are still theirs. You need to own the
+original game to use this port; without a copy of it, the port does nothing.
 
 ---
 
 ## Installing
 
-You need the original 2014 APK. The port reads the game's art and audio from
-the memory card at runtime — it ships none of it.
+You need the original 2014 APK. The port reads the game's art and audio off
+the memory card at runtime; it ships none of it.
 
 ### 1. Install the VPK
 
-Download `BikeRace.vpk` from the [Releases](../../releases) tab, copy it to
-your Vita (VitaShell over FTP or USB), press **Cross** on it and confirm the
-install.
+Grab `BikeRace.vpk` from the [Releases](../../releases) tab, copy it to your
+Vita (VitaShell over FTP or USB), press Cross on it and confirm the install.
 
-No kernel plugins are needed. This is a native build on vitaGL — it is **not**
-an `.so` loader port, so `kubridge` and `fd_fix` are **not** required.
+No kernel plugins needed here. This is a native vitaGL build, not an `.so`
+loader port, so `kubridge` and `fd_fix` don't apply.
 
 ### 2. Get the original APK
 
-Download **Bike Race 4.3** (`com.topfreegames.bikeraceproworld`, 2014):
+Download *Bike Race* 4.3 (`com.topfreegames.bikeraceproworld`, 2014):
 
 <https://bike-race.en.uptodown.com/android/download/122951516>
 
@@ -96,11 +98,11 @@ Rename `.apk` to `.zip` and extract it.
 
 ### 3. Convert the assets
 
-The game's files cannot be copied across as they are. The APK has no usable
-`assets/` folder — its art lives in `res/drawable-nodpi` and
-`res/drawable-xhdpi`, its audio in `res/raw` as MP3 and as WAVs at rates the
-Vita mixer does not take, and three of the wheel sprites only exist as regions
-inside a larger atlas. A script does the conversion:
+You can't just copy the APK's files across. There's no usable `assets/` folder
+in it: the art sits in `res/drawable-nodpi` and `res/drawable-xhdpi`, the
+audio is in `res/raw` as MP3s and as WAVs at sample rates the Vita's mixer
+won't take, and three of the wheel sprites only exist as regions cropped out
+of a bigger atlas. A script handles all of it:
 
 ```sh
 git clone https://github.com/franciscoclou/bikerace-vita.git
@@ -110,12 +112,12 @@ mkdir apk && unzip /path/to/bike-race.zip -d apk
 ```
 
 This needs `ffmpeg`, `imagemagick` and `python3` with Pillow. It writes
-`assets_out/` — about 24 MB.
+`assets_out/`, about 24 MB.
 
 ### 4. Copy the assets to the Vita
 
-Copy the **contents** of `assets_out/` into `ux0:data/bikerace/` with
-VitaShell, so you end up with:
+Copy everything *inside* `assets_out/` (not the folder itself) into
+`ux0:data/bikerace/` with VitaShell, so you end up with:
 
 ```
 ux0:data/bikerace/textures/
@@ -124,7 +126,7 @@ ux0:data/bikerace/sfx/
 ux0:data/bikerace/music/      <- optional, 8.8 MB menu track
 ```
 
-The menu music is the largest single file and the game runs without it.
+The menu music is the largest single file, and the game runs fine without it.
 
 Launch it from the LiveArea. Progress is saved to
 `ux0:data/bikerace/save.bin`, and ghost replays to `ghosts.bin` beside it.
@@ -133,7 +135,7 @@ Launch it from the LiveArea. Progress is saved to
 
 ## Building
 
-The toolchain runs in Docker, so nothing needs installing beyond it:
+The toolchain runs in Docker, so nothing else needs installing:
 
 ```sh
 ./scripts/setup.sh      # jadx, vita-parse-core, the vitasdk image
@@ -143,7 +145,7 @@ The toolchain runs in Docker, so nothing needs installing beyond it:
 ./scripts/build.sh      # -> build/BikeRace.vpk
 ```
 
-The first four steps need `apk/` in place — see step 2 above.
+The first four steps all need `apk/` in place; see step 2 above.
 
 `make -C tests run` compiles the game's own sources natively, with GL and the
 logger stubbed, and runs the real physics over all 152 levels. It runs twice:
@@ -160,35 +162,34 @@ once as a handheld, once as a PlayStation TV.
 ```
 
 The Vita has no console, so the game sends every log line as a UDP datagram to
-your PC and mirrors it to `ux0:data/bikerace/debug.log`, which survives a crash
-that takes the network with it.
+your PC and mirrors it to `ux0:data/bikerace/debug.log`, which survives a
+crash that takes the network with it.
 
 Network addresses, title id and paths live in
 [scripts/env.sh](scripts/env.sh). Override them in `scripts/env.local.sh`
 (gitignored) rather than editing a tracked file.
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the engine fits
-together and [docs/PORTING.md](docs/PORTING.md) tracks what is done.
+together, and [docs/PORTING.md](docs/PORTING.md) tracks what's done.
 
 ---
 
 ## Credits
 
-- **[VitaSDK](https://vitasdk.org/)** — the open toolchain the whole thing is
+- [VitaSDK](https://vitasdk.org/), the open toolchain this whole thing is
   built with.
-- **[Rinnegatamante](https://github.com/Rinnegatamante)** for
-  **[vitaGL](https://github.com/Rinnegatamante/vitaGL)**, the OpenGL
-  implementation over GXM that this port renders through. The fixed-function
-  path maps almost directly onto what the original's engine expected.
-- **[TheOfficialFloW](https://github.com/TheOfficialFloW)** and Rinnegatamante
-  more broadly, whose Android-to-Vita ports established the conventions this
-  one follows for packaging, asset layout and debugging — even though the
-  `.so` loader method they are best known for does not apply here, the
-  original having no native library to load.
-- **Top Free Games** for the original game.
+- [Rinnegatamante](https://github.com/Rinnegatamante) for
+  [vitaGL](https://github.com/Rinnegatamante/vitaGL), the GXM-backed OpenGL
+  implementation this port renders through. Its fixed-function path lines up
+  almost exactly with what the original's engine expected.
+- [TheOfficialFloW](https://github.com/TheOfficialFloW) and Rinnegatamante
+  again, for the packaging, asset-layout and debugging conventions most Vita
+  homebrew ports follow, this one included. (Their `.so` loader work doesn't
+  apply here, since the original never had a native library to load, but the
+  conventions around it do.)
+- Top Free Games, for the original game.
 
 ## Licence
 
-The C source in this repository is released under the MIT Licence. This covers
-the port only. It does not extend to *Bike Race* or to any asset extracted
-from it.
+The C source here is MIT licensed. That covers the port only, not *Bike Race*
+itself or anything extracted from it.
