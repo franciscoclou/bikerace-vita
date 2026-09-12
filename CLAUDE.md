@@ -244,7 +244,10 @@ the race, pause, and the end-of-run panel. Every screen is its own module under
 round buttons in a row via `src/ui/iconbar.c`; wordier lists use
 `src/ui/optionlist.c`. Both share the same navigation contract rather than each
 growing its own. The button reference lives once in `src/ui/controls.c`, since
-settings shows all of it and pause shows only the race half. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
+settings shows all of it and pause shows only the race half. The way out is
+one button in one corner -- `br_ui_back_button_*` in `src/ui/art.c` -- shared
+by the world, level and bike grids and by settings, so "back" is always in the
+same place and every screen reachable by touch can be left by touch. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
 primitives in `src/ui/glyphs.c`, since a touch game shipped none.
 
 Buttons are the game's own level tile nine-sliced (`br_draw_nine`), so the
@@ -261,6 +264,17 @@ one pitch-shifted loop: idle, slow, a one-shot climb, fast, and a one-shot drop
 back. The climb and drop hand over at 95% played so the change lands on the
 sample's own beat. Landings sound only above a force threshold and only after
 air time. All of that is ported as-is in [src/game/audio.c](src/game/audio.c).
+
+The menus click. The original was a touch game and made no interface sound at
+all, so the two used here are borrowed from its roulette: a dry button thunk as
+the cursor steps, a brighter chime when something is chosen. A press that is
+refused -- a locked world, a locked level -- stays silent, because a click there
+would say the press had taken. Every click shares one voice, so holding a
+direction ticks along with the auto-repeat instead of stacking a dozen
+overlapping copies onto the mixer. The widgets reach it through
+[src/ui/uisound.c](src/ui/uisound.c), which is a deliberate global: a shared
+list or icon row takes an input and a frame time, and that is the whole of its
+contract.
 
 The mixing itself is in [src/platform/mixer.c](src/platform/mixer.c) with no
 platform in it, so the host tests run the real code;
@@ -286,6 +300,17 @@ Progress lives in `ux0:data/bikerace/save.bin` — stars, best time and unlock
 state per level, plus where to reopen the menu. A missing or unrecognised file
 is not an error; it just looks like a first run.
 
+Which is exactly why **nothing is ever written in place**. A write caught
+half-done by a flat battery would leave a file the loader cannot parse, and the
+loader would call that a first run and start over. So a flush builds
+`save.tmp`, closes it, and only then swaps it in — `br_fs_replace()` in
+[src/platform/fs.c](src/platform/fs.c). That is not `rename(2)`: `sceIoRename`
+refuses to overwrite an existing destination, so the old file has to go first,
+which leaves a window of microseconds in which neither name resolves.
+`br_fs_open_saved()` closes it by reading the temporary when the real file is
+absent — it is already whole by the time the window opens. `ghosts.bin` is
+written the same way.
+
 Gating follows the original: finishing a level opens the next, rolling into the
 next world, and a world needs a running star total — 12, 28, 44 and so on to
 228 for world 12, and 66 for the seasonal ones. **World 16 is absent from the
@@ -295,9 +320,13 @@ bought from the shop, none of which exist here, so only the star totals
 survive.
 
 Settings can unlock everything or reset progress, each behind a confirmation
-that defaults to "no". Reset clears stars, times and locks but leaves the sound
-and music settings and the chosen bike alone — those are preferences, not
-something that was earned. Saves written before gating existed have their
+that defaults to "no". Reset clears stars, times, locks **and every recorded
+ghost**: a ghost is a best time made visible, so leaving one behind would put
+the old run on the track beside a save that no longer remembers the time it
+set. The ghosts live in their own file, which `src/app.c` owns and the settings
+screen has never seen, so the screen reports `BR_SETTINGS_RESET` and the app
+finishes the job. Sound, music and the chosen bike survive a reset — those are
+preferences, not something that was earned. Saves written before gating existed have their
 unlocks worked out from which levels have stars.
 
 ## Ghosts
@@ -315,7 +344,8 @@ is loaded once, so a record set on a different bike would otherwise keep
 drawing the old one until the level was re-entered.
 
 Ghosts live in `ux0:data/bikerace/ghosts.bin`, apart from `save.bin`, so a
-damaged ghost can never cost anyone their progress. Pause offers a switch to
+damaged ghost can never cost anyone their progress. Resetting the progress
+clears them too. Pause offers a switch to
 hide it, and only when the level has one.
 
 `br_game.ghost_hidden` is the player's own choice, deliberately **not** the
