@@ -238,8 +238,13 @@ void br_save_load(br_save *save)
     }
 
     version = get_u32(header + 4);
-    if (version != 1 && version != SAVE_VERSION) {
-        LOGW("save: %s is version %u -- ignoring it", path, version);
+    /* Every version up to this build's reads. Listing them one by one meant a
+     * v2 file -- written by any build between the settings screen and gating,
+     * and the very files the migration below exists for -- was thrown away
+     * instead of migrated. */
+    if (version < 1 || version > SAVE_VERSION) {
+        LOGW("save: %s is version %u, which this build cannot read -- "
+             "ignoring it", path, version);
         fclose(f);
         return;
     }

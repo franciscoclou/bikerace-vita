@@ -1870,6 +1870,62 @@ static void test_menus_click(void)
 }
 
 
+/* A v2 file -- written by every build between the settings screen and gating --
+ * used to be rejected outright by a version check that listed the versions it
+ * read one by one, so the migration that exists for exactly those files never
+ * ran on them. */
+static void test_old_save_versions_load(br_game *game)
+{
+    br_save save;
+    unsigned char header[36];
+    FILE *f;
+    int w, l;
+
+    begin("an older save still loads");
+
+    remove("assets_out/save.bin");
+    remove("assets_out/save.tmp");
+
+    /* Hand-build a v2 file: the v3 header shape, minus the unlock byte per
+     * level, with three stars on 1-1 and on 1-2. */
+    memset(header, 0, sizeof(header));
+    memcpy(header, "BRSV", 4);
+    header[4] = 2;                                  /* version 2 */
+    header[8] = (unsigned char)game->pack.world_count;
+    header[12] = (unsigned char)game->pack.worlds[0].level_count;
+    header[28] = 1;                                 /* sound on */
+    header[32] = 0;                                 /* music off */
+
+    f = fopen("assets_out/save.bin", "wb");
+    CHECK(f != NULL, "could not write a v2 save");
+    if (!f)
+        return;
+    fwrite(header, 1, sizeof(header), f);
+    for (w = 0; w < game->pack.world_count; w++) {
+        for (l = 0; l < game->pack.worlds[0].level_count; l++) {
+            unsigned char record[8];
+            memset(record, 0, sizeof(record));
+            if (w == 0 && l < 2)
+                record[0] = 3;
+            fwrite(record, 1, sizeof(record), f);
+        }
+    }
+    fclose(f);
+
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_load(&save);
+    CHECK(br_save_total_stars(&save) == 6,
+          "a v2 save was thrown away: %d stars read, want 6",
+          br_save_total_stars(&save));
+    CHECK(save.music_on == 0, "the v2 music setting was lost");
+    /* v2 has no unlock flags, so they come from what was finished. */
+    CHECK(br_save_level_unlocked(&save, 0, 2),
+          "1-3 did not open after migrating a v2 save that finished 1-2");
+    br_save_free(&save);
+
+    remove("assets_out/save.bin");
+}
+
 /* A press the gate refuses shakes the tile. Silence alone reads as the menu
  * having missed the press rather than having refused it. */
 static void test_locked_tile_shakes(br_game *game)
@@ -1952,6 +2008,7 @@ int main(int argc, char **argv)
     test_throttle_lock(&game);
     test_bike_cell(&game);
     test_settings_toggles(&game);
+    test_old_save_versions_load(&game);
     test_locked_tile_shakes(&game);
     test_settings_touch_back(&game);
     test_save_survives_interrupted_write(&game);
