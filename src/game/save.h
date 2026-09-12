@@ -58,6 +58,9 @@ int  br_save_level_unlocked(const br_save *save, int world, int level);
 /* Opens the level after this one, rolling into the next world. */
 void br_save_unlock_next(br_save *save, int world, int level);
 
+/* Clears stars, times, unlocks and the remembered place, and leaves the sound,
+ * music and bike preferences alone. Recorded ghosts are progress too but live
+ * in ghosts.bin; src/app.c wipes those at the same time. */
 void br_save_reset_progress(br_save *save);
 void br_save_unlock_everything(br_save *save);
 

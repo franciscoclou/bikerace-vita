@@ -232,10 +232,24 @@ static void update_settings(br_app *app, const br_input *in, float dt)
 {
     int was_sound = app->save.sound_on, was_music = app->save.music_on;
 
-    if (br_settings_update(&app->settings, in, dt) == BR_SETTINGS_CLOSE) {
+    switch (br_settings_update(&app->settings, in, dt)) {
+    case BR_SETTINGS_RESET:
+        /* A ghost is a best time made visible, so wiping the times has to wipe
+         * the runs with them. They live in their own file, which the app owns
+         * and the settings screen has never seen. */
+        br_ghost_store_clear(app->ghosts);
+        br_ghost_store_flush(app->ghosts);
+        app->game.ghost = NULL;
+        br_scene_use_ghost(&app->game.scene, -1);
+        br_save_flush(&app->save);
+        break;
+    case BR_SETTINGS_CLOSE:
         br_save_flush(&app->save);
         br_start_open(&app->start);
         app->screen = BR_APP_START;
+        break;
+    case BR_SETTINGS_NOTHING:
+        break;
     }
     if (app->save.sound_on != was_sound || app->save.music_on != was_music)
         apply_audio_settings(app);

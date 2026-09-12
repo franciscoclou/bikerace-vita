@@ -36,6 +36,10 @@ typedef struct br_ghost_store br_ghost_store;
 
 br_ghost_store *br_ghost_store_open(int world_count, int levels_per_world);
 void            br_ghost_store_close(br_ghost_store *store);
+/* Throws every recorded run away. Resetting progress does this: a ghost is a
+ * best time made visible, so leaving one behind would leave the old run racing
+ * beside a save that no longer remembers it. */
+void            br_ghost_store_clear(br_ghost_store *store);
 
 /* NULL when nothing has been recorded for that level. */
 const br_ghost *br_ghost_get(const br_ghost_store *store, int world, int level);

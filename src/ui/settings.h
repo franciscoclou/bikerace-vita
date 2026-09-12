@@ -8,11 +8,18 @@
 #include "optionlist.h"
 
 /* Sound and music toggles, plus a read-only page showing what every button
- * does. Both toggles live in the save file. */
+ * does. Both toggles live in the save file.
+ *
+ * Every state here can also be left by touch alone, through the same back
+ * button the menus use (ui/art.c), because the screen is reachable from a
+ * start screen that can itself be driven entirely by touch. */
 
 typedef enum {
     BR_SETTINGS_NOTHING = 0,
-    BR_SETTINGS_CLOSE
+    BR_SETTINGS_CLOSE,
+    /* The save has just been wiped. Ghosts are progress too, but they live in
+     * their own file and the app owns it, so the app finishes the job. */
+    BR_SETTINGS_RESET
 } br_settings_action;
 
 /* Reset and unlock-everything both change the save for good, so each asks
@@ -29,6 +36,8 @@ typedef struct {
     br_option_list   confirm_list;
     int   showing_controls;
     br_settings_confirm confirming;
+    /* Whether the current touch went down on the back button. */
+    int   back_touch;
 
     br_save *save;
 } br_settings;

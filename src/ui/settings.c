@@ -6,6 +6,7 @@
 #include "controls.h"
 #include "glyphs.h"
 #include "theme.h"
+#include "uisound.h"
 
 #define PANEL_W 520.0f
 #define PANEL_H 416.0f
@@ -64,6 +65,7 @@ void br_settings_open(br_settings *settings, br_save *save)
 {
     settings->save = save;
     settings->showing_controls = 0;
+    settings->back_touch = 0;
     settings->confirming = BR_CONFIRM_NONE;
     settings->list.selected = 0;
     settings->list.held_y = 0;
@@ -72,38 +74,65 @@ void br_settings_open(br_settings *settings, br_save *save)
     rebuild(settings);
 }
 
+/* Circle, or a tap that goes down and comes back up on the back button.
+ * Whatever state the screen is in, this means "one step out". */
+static int back_requested(br_settings *settings, const br_input *in)
+{
+    if (in->touch_began)
+        settings->back_touch = br_ui_back_button_hit(in->touch_ui_x, in->touch_ui_y);
+    if (in->touch_ended) {
+        int on_it = settings->back_touch &&
+                    br_ui_back_button_hit(in->touch_ui_x, in->touch_ui_y);
+
+        settings->back_touch = 0;
+        if (on_it)
+            return 1;
+    }
+    return in->back_pressed;
+}
+
 br_settings_action br_settings_update(br_settings *settings, const br_input *in,
                                       float dt)
 {
+    int back = back_requested(settings, in);
     int chosen;
 
     if (settings->showing_controls) {
-        if (in->back_pressed || in->confirm_pressed || in->touch_ended)
+        if (back || in->confirm_pressed || in->touch_ended) {
             settings->showing_controls = 0;
+            br_ui_sound_back();
+        }
         return BR_SETTINGS_NOTHING;
     }
 
     if (settings->confirming != BR_CONFIRM_NONE) {
         int answer = br_option_list_update(&settings->confirm_list, in, dt);
+        int reset = 0;
 
-        if (in->back_pressed)
+        if (back) {
             answer = 0;
+            br_ui_sound_back();
+        }
         if (answer == 1) {
-            if (settings->confirming == BR_CONFIRM_RESET)
+            if (settings->confirming == BR_CONFIRM_RESET) {
                 br_save_reset_progress(settings->save);
-            else
+                reset = 1;
+            } else {
                 br_save_unlock_everything(settings->save);
+            }
         }
         if (answer >= 0) {
             settings->confirming = BR_CONFIRM_NONE;
             rebuild(settings);
         }
-        return BR_SETTINGS_NOTHING;
+        return reset ? BR_SETTINGS_RESET : BR_SETTINGS_NOTHING;
     }
 
     chosen = br_option_list_update(&settings->list, in, dt);
-    if (in->back_pressed)
+    if (back) {
+        br_ui_sound_back();
         return BR_SETTINGS_CLOSE;
+    }
 
     switch (chosen) {
     case ROW_SOUND:
@@ -169,6 +198,11 @@ void br_settings_draw(const br_settings *settings, const br_font *display,
     br_ui_begin();
     br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
 
+    /* Drawn for every state, and before them: it sits in the bottom-left
+     * corner, clear of all three panels, and it is the only way out of this
+     * screen for someone using nothing but the touchscreen. */
+    br_ui_back_button_draw(settings->art, settings->back_touch);
+
     if (settings->showing_controls) {
         draw_controls(settings, display, body);
         return;
@@ -182,7 +216,7 @@ void br_settings_draw(const br_settings *settings, const br_font *display,
                               34.0f, &BR_INK);
         br_font_draw_centered(body,
                               settings->confirming == BR_CONFIRM_RESET
-                                  ? "Every star and best time will be lost."
+                                  ? "Every star, best time and ghost will be lost."
                                   : "Every world opens. This cannot be undone.",
                               BR_UI_W * 0.5f, 224.0f, 22.0f, &BR_INK);
         br_option_list_draw(&settings->confirm_list, body, 26.0f,

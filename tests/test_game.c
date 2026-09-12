@@ -1674,6 +1674,148 @@ static void test_save_survives_interrupted_write(br_game *game)
     remove("assets_out/save.tmp");
 }
 
+/* A ghost is a best time made visible. Resetting the progress has to take the
+ * recorded runs with it, or the old run keeps racing beside a save that no
+ * longer remembers the time it set. */
+static void test_reset_clears_ghosts(void)
+{
+    br_app app;
+    br_input in;
+    br_ghost_recorder rec;
+    br_ghost run;
+    vec2 head;
+    int i;
+
+    begin("resetting the progress clears the ghosts");
+
+    remove("assets_out/save.bin");
+    remove("assets_out/save.tmp");
+    remove("assets_out/ghosts.bin");
+    remove("assets_out/ghosts.tmp");
+
+    CHECK(br_app_init(&app) == 0, "app init failed");
+
+    br_ghost_record_begin(&rec);
+    for (i = 0; i < 60; i++) {
+        float t = (float)i / 60.0f;
+        v2_set(&head, t * 2.0f, 1.0f);
+        br_ghost_record_tick(&rec, t, &head, 0.0f);
+    }
+    run.samples = rec.samples;
+    run.count = rec.count;
+    run.bike = BR_BIKE_REGULAR;
+    run.time = 1.0f;
+    br_ghost_put(app.ghosts, 0, 0, &run);
+    br_save_record(&app.save, 0, 0, 3, 1.0f);
+    CHECK(br_ghost_get(app.ghosts, 0, 0) != NULL, "the test ghost was not kept");
+
+    br_settings_open(&app.settings, &app.save);
+    app.screen = BR_APP_SETTINGS;
+
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    app.settings.list.selected = 4;                 /* Reset progress */
+    br_app_update(&app, &in, 1.0f / 60.0f);
+    CHECK(app.settings.confirming == BR_CONFIRM_RESET, "Reset did not ask first");
+
+    app.settings.confirm_list.selected = 1;         /* yes, erase it */
+    br_app_update(&app, &in, 1.0f / 60.0f);
+
+    CHECK(br_save_total_stars(&app.save) == 0, "the stars survived the reset");
+    CHECK(br_ghost_get(app.ghosts, 0, 0) == NULL,
+          "the ghost survived the reset -- a wiped best time still has a run "
+          "racing beside it");
+    CHECK(app.game.ghost == NULL, "the race still points at the cleared ghost");
+    br_app_free(&app);
+
+    /* And it is gone from the disk, not just from memory. */
+    {
+        br_ghost_store *store = br_ghost_store_open(19, 8);
+
+        CHECK(store && br_ghost_get(store, 0, 0) == NULL,
+              "the cleared ghost came back from ghosts.bin");
+        br_ghost_store_close(store);
+    }
+
+    remove("assets_out/save.bin");
+    remove("assets_out/ghosts.bin");
+}
+
+/* Settings is reachable from a start screen that can be driven by touch alone,
+ * so it has to be leavable the same way. */
+static void test_settings_touch_back(br_game *game)
+{
+    br_settings settings;
+    br_ui_art art;
+    br_input in;
+    br_save save;
+    float bx, by, bsize;
+
+    begin("settings can be left by touch");
+
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    memset(&art, 0, sizeof(art));
+    br_settings_init(&settings, &art);
+    br_settings_open(&settings, &save);
+    br_ui_back_button_rect(&bx, &by, &bsize);
+
+    /* Down and up on the button closes the screen. */
+    memset(&in, 0, sizeof(in));
+    in.touch_ui_x = bx + bsize * 0.5f;
+    in.touch_ui_y = by + bsize * 0.5f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) == BR_SETTINGS_NOTHING,
+          "touching down on back already closed the settings");
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) == BR_SETTINGS_CLOSE,
+          "tapping back did not close the settings");
+
+    /* Sliding off it first does not. */
+    br_settings_open(&settings, &save);
+    memset(&in, 0, sizeof(in));
+    in.touch_ui_x = bx + bsize * 0.5f;
+    in.touch_ui_y = by + bsize * 0.5f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    in.touch_ui_x = 480.0f;                         /* released elsewhere */
+    in.touch_ui_y = 20.0f;
+    CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) != BR_SETTINGS_CLOSE,
+          "releasing away from back still closed the settings");
+
+    /* From the confirm it cancels rather than closing, and erases nothing. */
+    br_settings_open(&settings, &save);
+    br_save_record(&save, 0, 0, 3, 9.0f);
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    settings.list.selected = 4;
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    CHECK(settings.confirming == BR_CONFIRM_RESET, "Reset did not ask first");
+
+    memset(&in, 0, sizeof(in));
+    in.touch_ui_x = bx + bsize * 0.5f;
+    in.touch_ui_y = by + bsize * 0.5f;
+    in.touch_active = 1;
+    in.touch_began = 1;
+    br_settings_update(&settings, &in, 1.0f / 60.0f);
+    in.touch_began = 0;
+    in.touch_active = 0;
+    in.touch_ended = 1;
+    CHECK(br_settings_update(&settings, &in, 1.0f / 60.0f) == BR_SETTINGS_NOTHING,
+          "backing out of the confirm closed the whole screen");
+    CHECK(settings.confirming == BR_CONFIRM_NONE, "back did not cancel the confirm");
+    CHECK(br_save_total_stars(&save) == 3, "backing out of the confirm erased the save");
+
+    br_save_free(&save);
+    remove("assets_out/save.bin");
+}
+
 /* Every menu press makes a sound, and a press that is refused does not -- a
  * click on a locked world would say the press had taken. */
 static void test_menus_click(void)
@@ -1762,6 +1904,7 @@ int main(int argc, char **argv)
     test_throttle_lock(&game);
     test_bike_cell(&game);
     test_settings_toggles(&game);
+    test_settings_touch_back(&game);
     test_save_survives_interrupted_write(&game);
     test_result_actions();
     test_start_screen();
@@ -1777,6 +1920,7 @@ int main(int argc, char **argv)
 
     br_game_free(&game);
     test_app_opens_audio();
+    test_reset_clears_ghosts();
     test_menus_click();
 
     printf("\n%s: %d failure(s)\n", g_failures ? "FAILED" : "OK", g_failures);

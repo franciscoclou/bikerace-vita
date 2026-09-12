@@ -50,6 +50,16 @@ void br_ui_tiremarks(const br_ui_art *art, float centre_x, float y,
  * darker lip under it. Plain paper on its own read as a flat rectangle. */
 void br_ui_panel(const br_ui_art *art, float x, float y, float w, float h);
 
+/* The way out, in the corner every screen puts it in.
+ *
+ * The world, level and bike grids and the settings modal all need one and they
+ * all need it in the same place, so the position, the hit test and the drawing
+ * live here once rather than in each screen. `pressed` draws it held down,
+ * which is how a touch shows it has taken. */
+void br_ui_back_button_rect(float *x, float *y, float *size);
+int  br_ui_back_button_hit(float px, float py);
+void br_ui_back_button_draw(const br_ui_art *art, int pressed);
+
 static inline int br_ui_has(const br_texture *tex)
 {
     return tex->image != NULL && tex->image->id != 0;

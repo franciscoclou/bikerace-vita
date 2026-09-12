@@ -8,6 +8,32 @@
 #include "../platform/log.h"
 #include "theme.h"
 
+#define BACK_SIZE 54.0f
+#define BACK_X    26.0f
+#define BACK_Y    (544.0f - BACK_SIZE - 18.0f)
+
+void br_ui_back_button_rect(float *x, float *y, float *size)
+{
+    *x = BACK_X;
+    *y = BACK_Y;
+    *size = BACK_SIZE;
+}
+
+int br_ui_back_button_hit(float px, float py)
+{
+    return px >= BACK_X && px < BACK_X + BACK_SIZE &&
+           py >= BACK_Y && py < BACK_Y + BACK_SIZE;
+}
+
+void br_ui_back_button_draw(const br_ui_art *art, int pressed)
+{
+    if (br_ui_has(&art->t_back))
+        br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
+                     &art->t_back, pressed ? &BR_TILE_SEL : NULL);
+    else
+        br_fill_round_rect(BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE, 12.0f, &BR_PANEL);
+}
+
 static int load_one(br_image *image, br_texture *tex, const char *file)
 {
     char path[256];

@@ -160,8 +160,10 @@ void br_save_unlock_next(br_save *save, int world, int level)
 
 void br_save_reset_progress(br_save *save)
 {
-    /* Progress only: the sound and music settings and the chosen bike are
-     * preferences, not something that was earned. */
+    /* Everything that was earned: stars, times, unlocks and where the menu
+     * sits. The sound and music settings and the chosen bike stay, because
+     * they are preferences rather than progress. Ghosts go too, but they are
+     * a separate file -- src/app.c clears them alongside this. */
     memset(save->levels, 0,
            sizeof(br_level_progress) *
            (size_t)(save->world_count * save->levels_per_world));

@@ -267,6 +267,22 @@ void br_ghost_store_close(br_ghost_store *store)
     free(store);
 }
 
+void br_ghost_store_clear(br_ghost_store *store)
+{
+    int i;
+
+    if (!store)
+        return;
+    for (i = 0; i < store->world_count * store->levels_per_world; i++) {
+        free(store->ghosts[i].samples);
+        memset(&store->ghosts[i], 0, sizeof(br_ghost));
+    }
+    /* Always dirty, so the wipe reaches the disk even when nothing was
+     * recorded: a reset has to leave nothing behind to load next time. */
+    store->dirty = 1;
+    LOGI("ghost: every recorded run cleared");
+}
+
 const br_ghost *br_ghost_get(const br_ghost_store *store, int world, int level)
 {
     const br_ghost *g = store ? slot(store, world, level) : NULL;

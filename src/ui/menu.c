@@ -36,10 +36,6 @@
 #define BIKE_GAP     10.0f
 #define BIKE_TOP    120.0f
 
-#define BACK_SIZE 54.0f
-#define BACK_X    26.0f
-#define BACK_Y    (SCREEN_H - BACK_SIZE - 18.0f)
-
 /* Names as the game itself has them, from its string table. */
 static const char *s_world_names[] = {
     "Desert", "Arctic", "Dunes", "Hills", "Beach", "Savanna",
@@ -192,16 +188,10 @@ int br_menu_tile_rect(const br_menu *menu, const br_level_pack *pack, int index,
     return 1;
 }
 
+/* The button itself belongs to every screen, so it lives in ui/art.c. */
 void br_menu_back_button_rect(float *x, float *y, float *size)
 {
-    *x = BACK_X;
-    *y = BACK_Y;
-    *size = BACK_SIZE;
-}
-
-static int over_back_button(float px, float py)
-{
-    return point_in(px, py, BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE);
+    br_ui_back_button_rect(x, y, size);
 }
 
 /* ---------------------------------------------------------------- update -- */
@@ -293,7 +283,7 @@ static int touch_target_now(const br_menu *menu, const br_input *in, int count)
 {
     /* Every screen has the same way out, so the button is checked on all of
      * them -- and before the tiles, since it overlaps the bottom row. */
-    if (over_back_button(in->touch_ui_x, in->touch_ui_y))
+    if (br_ui_back_button_hit(in->touch_ui_x, in->touch_ui_y))
         return BR_TOUCH_BACK;
 
     switch (menu->screen) {
@@ -538,15 +528,12 @@ static void draw_bike_portrait(const br_menu *menu, br_bike_type type,
 static void draw_back_button(const br_menu *menu, const br_font *body,
                              const br_hint *hints, int count)
 {
-    if (br_ui_has(&menu->art->t_back))
-        br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
-                     &menu->art->t_back,
-                     menu->touch_target == BR_TOUCH_BACK ? &BR_TILE_SEL : NULL);
-    else
-        br_fill_round_rect(BACK_X, BACK_Y, BACK_SIZE, BACK_SIZE, 12.0f, &BR_PANEL);
+    float bx, by, size;
 
-    br_hints_draw(hints, count, body, BACK_X + BACK_SIZE + 18.0f,
-                  BACK_Y + (BACK_SIZE - 26.0f) * 0.5f, 26.0f, &BR_TEXT);
+    br_ui_back_button_rect(&bx, &by, &size);
+    br_ui_back_button_draw(menu->art, menu->touch_target == BR_TOUCH_BACK);
+    br_hints_draw(hints, count, body, bx + size + 18.0f,
+                  by + (size - 26.0f) * 0.5f, 26.0f, &BR_TEXT);
 }
 
 static void draw_worlds(const br_menu *menu, const br_level_pack *pack,
