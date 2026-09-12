@@ -1158,7 +1158,6 @@ static void test_menu_touch(br_game *game)
 }
 
 void br_test_audio_reset(void);
-int br_test_audio_started(void);
 const br_sound *br_test_audio_looping(void);
 int br_test_audio_active(void);
 
@@ -1844,60 +1843,6 @@ static void test_settings_touch_back(br_game *game)
     remove("assets_out/save.bin");
 }
 
-/* Every menu press makes a sound, and a press that is refused does not -- a
- * click on a locked world would say the press had taken. */
-static void test_menus_click(void)
-{
-    br_app app;
-    br_input in;
-
-    begin("menus click");
-
-    remove("assets_out/save.bin");
-    CHECK(br_app_init(&app) == 0, "app init failed");
-    br_menu_open_worlds(&app.menu);
-    app.screen = BR_APP_MENU;
-    app.menu.world = 0;
-
-    memset(&in, 0, sizeof(in));
-    br_test_audio_reset();
-    in.nav_x = 1;
-    br_app_update(&app, &in, 1.0f / 60.0f);
-    CHECK(app.menu.world == 1, "the cursor did not move");
-    CHECK(br_test_audio_started() >= 1, "moving the cursor made no sound");
-
-    /* World 2 wants 12 stars and this save has none. */
-    memset(&in, 0, sizeof(in));
-    br_test_audio_reset();
-    in.confirm_pressed = 1;
-    br_app_update(&app, &in, 1.0f / 60.0f);
-    CHECK(app.menu.screen == BR_MENU_WORLDS, "a locked world opened");
-    CHECK(br_test_audio_started() == 0,
-          "choosing a locked world clicked anyway, as if the press had taken");
-
-    /* World 1 is open, so that one does sound. */
-    memset(&in, 0, sizeof(in));
-    app.menu.world = 0;
-    br_test_audio_reset();
-    in.confirm_pressed = 1;
-    br_app_update(&app, &in, 1.0f / 60.0f);
-    CHECK(app.menu.screen == BR_MENU_LEVELS, "world 1 did not open");
-    CHECK(br_test_audio_started() >= 1, "opening a world made no sound");
-
-    /* With the sound off, nothing at all. */
-    memset(&in, 0, sizeof(in));
-    app.save.sound_on = 0;
-    br_game_audio_set_enabled(&app.game.audio, 0, 0);
-    br_test_audio_reset();
-    in.nav_x = 1;
-    br_app_update(&app, &in, 1.0f / 60.0f);
-    CHECK(br_test_audio_started() == 0, "the menu clicked with the sound off");
-
-    br_app_free(&app);
-    remove("assets_out/save.bin");
-}
-
-
 /* A v2 file -- written by every build between the settings screen and gating --
  * used to be rejected outright by a version check that listed the versions it
  * read one by one, so the migration that exists for exactly those files never
@@ -2122,7 +2067,6 @@ int main(int argc, char **argv)
     br_game_free(&game);
     test_app_opens_audio();
     test_reset_clears_ghosts();
-    test_menus_click();
 
     printf("\n%s: %d failure(s)\n", g_failures ? "FAILED" : "OK", g_failures);
     return g_failures ? 1 : 0;

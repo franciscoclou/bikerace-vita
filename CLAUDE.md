@@ -269,18 +269,11 @@ back. The climb and drop hand over at 95% played so the change lands on the
 sample's own beat. Landings sound only above a force threshold and only after
 air time. All of that is ported as-is in [src/game/audio.c](src/game/audio.c).
 
-The menus tick. One sample, `roleta_start_botao` from the original's roulette,
-at one level, for every press there is — moving the cursor, choosing, backing
-out. Grading them (a quieter one for the cursor, a chime for a choice) was
-tried and reverted: it made the interface sound like it was commenting on
-itself. The only distinction left is that a refused press — a locked world, a
-locked level — does not tick at all, because a tick there would say the press
-had taken; it shakes the tile instead. Every tick takes back the same voice, so
-holding a direction ticks along with the auto-repeat rather than stacking
-overlapping copies onto the mixer. The widgets reach it through
-[src/ui/uisound.c](src/ui/uisound.c), which is a deliberate global: a shared
-list or icon row takes an input and a frame time, and that is the whole of its
-contract.
+**The menus are silent, deliberately.** The original made no interface sound,
+and this port tried adding one twice — graded clicks, then a single tick for
+everything — and settled on neither. A press that the gate refuses is answered
+visibly instead, by shaking the tile. Do not add menu sounds back without being
+asked for them.
 
 The mixing itself is in [src/platform/mixer.c](src/platform/mixer.c) with no
 platform in it, so the host tests run the real code;
@@ -319,7 +312,8 @@ written the same way.
 
 A press on a locked tile shakes it for a third of a second. The gate used to
 swallow the press entirely, which reads as the menu having missed it rather
-than having refused it.
+than having refused it. It is the only feedback a refused press gets, since the
+menus make no sound.
 
 Gating follows the original: finishing a level opens the next, rolling into the
 next world, and a world needs a running star total — 12, 28, 44 and so on to

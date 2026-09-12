@@ -6,7 +6,6 @@
 #include "controls.h"
 #include "glyphs.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define PANEL_W 520.0f
 #define PANEL_H 416.0f
@@ -98,10 +97,8 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
     int chosen;
 
     if (settings->showing_controls) {
-        if (back || in->confirm_pressed || in->touch_ended) {
+        if (back || in->confirm_pressed || in->touch_ended)
             settings->showing_controls = 0;
-            br_ui_click();
-        }
         return BR_SETTINGS_NOTHING;
     }
 
@@ -109,10 +106,8 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
         int answer = br_option_list_update(&settings->confirm_list, in, dt);
         int reset = 0;
 
-        if (back) {
+        if (back)
             answer = 0;
-            br_ui_click();
-        }
         if (answer == 1) {
             if (settings->confirming == BR_CONFIRM_RESET) {
                 br_save_reset_progress(settings->save);
@@ -129,10 +124,8 @@ br_settings_action br_settings_update(br_settings *settings, const br_input *in,
     }
 
     chosen = br_option_list_update(&settings->list, in, dt);
-    if (back) {
-        br_ui_click();
+    if (back)
         return BR_SETTINGS_CLOSE;
-    }
 
     switch (chosen) {
     case ROW_SOUND:

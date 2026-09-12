@@ -20,7 +20,6 @@ static const char *s_files[BR_SFX_COUNT] = {
     "corvo_1.wav",
     "grito_homem_1.wav",
     "evil_laugh_bruxa_3.wav",
-    "roleta_start_botao.wav",   /* ui, every press */
 };
 
 #define ENGINE_IDLE_VOLUME   0.8f
@@ -176,18 +175,6 @@ void br_game_audio_impact(br_game_audio *audio, float force, float ground_factor
 
     play_once(audio, BR_SFX_FALL_IMPACT, 1.0f);
     audio->impact_cooldown = note_seconds(audio, BR_SFX_FALL_IMPACT);
-}
-
-void br_game_audio_ui_click(br_game_audio *audio)
-{
-    /* The same tick at the same level whatever the press was. Grading them --
-     * a quieter one for the cursor, a chime for a choice -- made the interface
-     * sound like it was commenting on itself. */
-    if (!audio->sound_on)
-        return;
-
-    br_audio_stop(audio->ui_voice);
-    audio->ui_voice = br_audio_play(&audio->sfx[BR_SFX_UI_CLICK], 0.45f, 0);
 }
 
 void br_game_audio_crash(br_game_audio *audio)

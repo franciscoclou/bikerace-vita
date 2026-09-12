@@ -5,7 +5,6 @@
 #include "../engine/render.h"
 #include "art.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define REPEAT_FIRST 0.32f
 #define REPEAT_NEXT  0.12f
@@ -85,13 +84,11 @@ static int repeated(br_iconbar *bar, const br_input *in, float dt)
 int br_iconbar_update(br_iconbar *bar, const br_input *in, float dt)
 {
     int chosen = BR_ICON_NONE;
-    int was_selected;
 
     if (bar->count == 0)
         return BR_ICON_NONE;
     if (bar->selected >= bar->count)
         bar->selected = bar->count - 1;
-    was_selected = bar->selected;
 
     if (repeated(bar, in, dt)) {
         bar->selected += in->nav_x;
@@ -115,11 +112,6 @@ int br_iconbar_update(br_iconbar *bar, const br_input *in, float dt)
 
     if (in->confirm_pressed)
         chosen = bar->selected;
-
-    if (bar->selected != was_selected)
-        br_ui_click();
-    if (chosen != BR_ICON_NONE)
-        br_ui_click();
     return chosen;
 }
 

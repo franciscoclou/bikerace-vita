@@ -6,7 +6,6 @@
 #include "../engine/render.h"
 #include "glyphs.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define PANEL_W 570.0f
 #define PANEL_H 400.0f
@@ -57,14 +56,10 @@ br_result_action br_result_update(br_result *result, const br_input *in, float d
 
     /* The buttons shortcut the row, so nobody has to arrow to the obvious
      * choice: Circle tries again, Start steps out to the level list. */
-    if (in->back_pressed) {
-        br_ui_click();
+    if (in->back_pressed)
         return BR_RESULT_REPEAT;
-    }
-    if (in->pause_pressed) {
-        br_ui_click();
+    if (in->pause_pressed)
         return BR_RESULT_MENU;
-    }
 
     if (chosen < 0)
         return BR_RESULT_NOTHING;

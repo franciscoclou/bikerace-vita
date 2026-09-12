@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "../engine/render.h"
-#include "uisound.h"
 
 #define REPEAT_FIRST 0.32f
 #define REPEAT_NEXT  0.12f
@@ -96,15 +95,11 @@ static int repeated(br_option_list *list, const br_input *in, float dt)
 int br_option_list_update(br_option_list *list, const br_input *in, float dt)
 {
     int chosen = BR_OPTION_NONE;
-    int was_selected;
 
     if (list->count == 0)
         return BR_OPTION_NONE;
     if (list->selected >= list->count)
         list->selected = list->count - 1;
-    /* Read after the clamp, so a list that shrank under the cursor does not
-     * click on its way back into range. */
-    was_selected = list->selected;
 
     if (repeated(list, in, dt)) {
         list->selected += in->nav_y;
@@ -128,13 +123,6 @@ int br_option_list_update(br_option_list *list, const br_input *in, float dt)
 
     if (in->confirm_pressed)
         chosen = list->selected;
-
-    /* A tick as the cursor lands, whether a button moved it or a finger
-     * dragged across the rows. */
-    if (list->selected != was_selected)
-        br_ui_click();
-    if (chosen != BR_OPTION_NONE)
-        br_ui_click();
     return chosen;
 }
 

@@ -5,7 +5,6 @@
 #include "../engine/render.h"
 #include "glyphs.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define OPTION_X    46.0f
 #define OPTION_W   300.0f
@@ -54,10 +53,8 @@ br_start_action br_start_update(br_start *start, const br_input *in, float dt)
     if (start->confirming_exit) {
         int answer = br_option_list_update(&start->confirm_list, in, dt);
 
-        if (in->back_pressed) {
+        if (in->back_pressed)
             answer = 0;
-            br_ui_click();
-        }
         if (answer == 1)
             return BR_START_EXIT;
         if (answer == 0)

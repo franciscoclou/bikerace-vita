@@ -11,7 +11,6 @@
 #include "glyphs.h"
 #include "preview.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define SCREEN_W 960.0f
 #define SCREEN_H 544.0f
@@ -327,13 +326,12 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                               const br_level_pack *pack, const br_save *save)
 {
     grid g = grid_for(menu, pack);
-    int commit = 0, back = 0, was_selected;
+    int commit = 0, back = 0;
 
     if (*g.selection >= g.count)
         *g.selection = g.count - 1;
     if (*g.selection < 0)
         *g.selection = 0;
-    was_selected = *g.selection;
 
     if (menu->refused_time > 0.0f)
         menu->refused_time -= dt;
@@ -365,15 +363,11 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
     if (in->back_pressed)
         back = 1;
 
-    if (*g.selection != was_selected)
-        br_ui_click();
-
     switch (menu->screen) {
     case BR_MENU_BIKES:
         /* The choice applies as the cursor moves, so either button just
          * returns to wherever the list was opened from. */
         if (commit || back) {
-            br_ui_click();
             if (menu->came_from == BR_MENU_LEVELS)
                 br_menu_open_levels(menu, menu->world);
             else
@@ -385,28 +379,23 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
         if (in->bikes_pressed || (commit && menu->world >= pack->world_count)) {
             if (menu->world >= pack->world_count)
                 menu->world = pack->world_count - 1;
-            br_ui_click();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
         if (commit) {
-            /* A shut world does not tick -- a click would say the press had
-             * taken -- but it does shake, so the press is visibly seen. */
+            /* A shut world shakes rather than doing nothing at all: the gate
+             * swallowing the press reads as the menu having missed it. */
             if (!br_save_world_unlocked(save, menu->world)) {
                 refuse(menu, menu->world);
                 return BR_MENU_STAY;      /* not enough stars yet */
             }
-            br_ui_click();
             br_menu_open_levels(menu, menu->world);
             return BR_MENU_STAY;
         }
-        if (back)
-            br_ui_click();
         return back ? BR_MENU_BACK : BR_MENU_STAY;
 
     default:
         if (in->bikes_pressed) {
-            br_ui_click();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
@@ -417,13 +406,10 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                 refuse(menu, menu->level);
                 return BR_MENU_STAY;
             }
-            br_ui_click();
             return BR_MENU_PLAY;
         }
-        if (back) {
-            br_ui_click();
+        if (back)
             br_menu_open_worlds(menu);
-        }
         return BR_MENU_STAY;
     }
 }

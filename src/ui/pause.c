@@ -6,7 +6,6 @@
 #include "controls.h"
 #include "glyphs.h"
 #include "theme.h"
-#include "uisound.h"
 
 #define PANEL_W 620.0f
 #define PANEL_H 274.0f
@@ -47,20 +46,16 @@ br_pause_action br_pause_update(br_pause *pause, const br_input *in, float dt)
     int chosen;
 
     if (pause->showing_controls) {
-        if (in->back_pressed || in->confirm_pressed || in->touch_ended) {
+        if (in->back_pressed || in->confirm_pressed || in->touch_ended)
             pause->showing_controls = 0;
-            br_ui_click();
-        }
         return BR_PAUSE_NOTHING;
     }
 
     chosen = br_iconbar_update(&pause->bar, in, dt);
 
     /* Circle and Start both back out, which is what both do everywhere else. */
-    if (in->back_pressed || in->pause_pressed) {
-        br_ui_click();
+    if (in->back_pressed || in->pause_pressed)
         return BR_PAUSE_RESUME;
-    }
 
     if (chosen < 0)
         return BR_PAUSE_NOTHING;

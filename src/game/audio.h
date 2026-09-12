@@ -24,10 +24,6 @@ typedef enum {
     BR_SFX_SPOOKY_RAVEN,
     BR_SFX_SPOOKY_SCREAM,
     BR_SFX_SPOOKY_LAUGH,
-    /* The interface. One sample, borrowed from the original's roulette, for
-     * every menu press there is: the original was a touch game and clicked at
-     * nothing, and anything more than a tick starts performing. */
-    BR_SFX_UI_CLICK,
     BR_SFX_COUNT
 } br_sfx;
 
@@ -48,7 +44,6 @@ typedef struct {
     br_voice        engine_voice;
     int             engine_sfx;     /* which sample the engine voice holds, or -1 */
 
-    br_voice        ui_voice;       /* one for the whole interface; see below */
     br_voice        music_voice;
     int             music_wanted;   /* what the app asked for, before the toggle */
     float           impact_cooldown;
@@ -68,11 +63,6 @@ void br_game_audio_engine(br_game_audio *audio, int accelerating, float rear_spe
 /* A hard landing: only fires above a force threshold, and only when the bike
  * has been off the ground, which `ground_factor` tracks. */
 void br_game_audio_impact(br_game_audio *audio, float force, float ground_factor);
-
-/* One tick, the same for moving the cursor, choosing and backing out. It has a
- * voice of its own that each tick takes back, so holding a direction ticks
- * along with the auto-repeat instead of stacking overlapping copies. */
-void br_game_audio_ui_click(br_game_audio *audio);
 
 void br_game_audio_crash(br_game_audio *audio);
 void br_game_audio_win(br_game_audio *audio);
