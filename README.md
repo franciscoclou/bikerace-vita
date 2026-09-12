@@ -111,8 +111,39 @@ mkdir apk && unzip /path/to/bike-race.zip -d apk
 ./scripts/extract_assets.sh
 ```
 
-This needs `ffmpeg`, `imagemagick` and `python3` with Pillow. It writes
-`assets_out/`, about 24 MB.
+This needs `ffmpeg`, ImageMagick and `python3` with Pillow. If you don't
+already have them:
+
+**Debian / Ubuntu**
+```sh
+sudo apt install ffmpeg imagemagick python3-pil
+```
+
+**macOS (Homebrew)**
+```sh
+brew install ffmpeg imagemagick
+python3 -m pip install --user Pillow
+```
+(If pip refuses with "externally managed environment," add
+`--break-system-packages` to that command, or install Pillow into a venv
+instead.)
+
+**Windows**
+```powershell
+choco install ffmpeg imagemagick python
+python -m pip install Pillow
+```
+Without Chocolatey, install each by hand instead: [ffmpeg](https://ffmpeg.org/download.html#build-windows),
+[ImageMagick](https://imagemagick.org/script/download.php#windows) and
+[Python](https://www.python.org/downloads/) (tick "Add python.exe to PATH" in
+its installer), then `pip install Pillow`.
+
+Current ImageMagick (7.x, which is what Homebrew and newer Linux distros
+install by default) replaced the standalone `convert` and `identify` commands
+with `magick convert` / `magick identify`. The script detects whichever your
+system has and uses that, so either version works.
+
+It writes `assets_out/`, about 24 MB.
 
 ### 4. Copy the assets to the Vita
 
