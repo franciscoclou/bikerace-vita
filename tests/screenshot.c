@@ -116,6 +116,17 @@ int main(int argc, char **argv)
     app.screen = BR_APP_START;
     shoot(&app, dir, "start", 0);
 
+    /* Leaving asks first, like everything else that cannot be taken back. */
+    {
+        br_input press;
+        memset(&press, 0, sizeof(press));
+        press.confirm_pressed = 1;
+        app.start.list.selected = 2;
+        br_start_update(&app.start, &press, 1.0f / 60.0f);
+    }
+    shoot(&app, dir, "start_exit", 0);
+    br_start_open(&app.start);
+
     br_settings_open(&app.settings, &app.save);
     app.screen = BR_APP_SETTINGS;
     shoot(&app, dir, "settings", 0);

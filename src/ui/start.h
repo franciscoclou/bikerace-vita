@@ -8,7 +8,10 @@
 
 /* The screen the game opens on, over the artwork the APK ships. Multiplayer
  * and the shop are not ported, so the only ways on are single player,
- * settings, and out. */
+ * settings, and out.
+ *
+ * Out asks first. Every destructive thing in settings does, and quitting from
+ * the third row of a three-row list is one stray Cross away. */
 
 typedef enum {
     BR_START_NOTHING = 0,
@@ -20,6 +23,9 @@ typedef enum {
 typedef struct {
     const br_ui_art *art;
     br_option_list   list;
+
+    int              confirming_exit;
+    br_option_list   confirm_list;
 } br_start;
 
 void br_start_init(br_start *start, const br_ui_art *art);

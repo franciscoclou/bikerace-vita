@@ -1489,8 +1489,36 @@ static void test_start_screen(void)
           "the second row is not Settings");
 
     start.list.selected = 2;
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_NOTHING,
+          "Exit quit without asking first");
+    CHECK(start.confirming_exit, "Exit did not ask first");
+    CHECK(start.confirm_list.selected == 0,
+          "the confirm defaults to answer %d; it must default to 'no'",
+          start.confirm_list.selected);
+
+    /* The default answer keeps the game open. */
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_NOTHING,
+          "the default answer quit the game");
+    CHECK(!start.confirming_exit, "answering 'no' did not close the confirm");
+
+    /* Circle backs out of it too. */
+    start.list.selected = 2;
+    br_start_update(&start, &in, 1.0f / 60.0f);
+    CHECK(start.confirming_exit, "Exit did not ask first");
+    memset(&in, 0, sizeof(in));
+    in.back_pressed = 1;
+    CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_NOTHING,
+          "Circle on the confirm quit the game");
+    CHECK(!start.confirming_exit, "Circle did not back out of the confirm");
+
+    /* And saying yes does quit. */
+    memset(&in, 0, sizeof(in));
+    in.confirm_pressed = 1;
+    start.list.selected = 2;
+    br_start_update(&start, &in, 1.0f / 60.0f);
+    start.confirm_list.selected = 1;
     CHECK(br_start_update(&start, &in, 1.0f / 60.0f) == BR_START_EXIT,
-          "the third row is not Exit");
+          "'yes, quit' did not quit");
 }
 
 static void test_app_opens_audio(void)
