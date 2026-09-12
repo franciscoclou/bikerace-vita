@@ -22,6 +22,15 @@ static void save_path(char *out, unsigned size)
     snprintf(out, size, "%s/save.bin", br_asset_root());
 }
 
+/* The file a flush builds before it replaces save.bin. Progress is the one
+ * thing here that cannot be regenerated, and a loader that cannot make sense
+ * of a file treats it as a first run -- so a write interrupted in place would
+ * quietly erase everything. See br_fs_replace(). */
+static void save_tmp_path(char *out, unsigned size)
+{
+    snprintf(out, size, "%s/save.tmp", br_asset_root());
+}
+
 int br_save_init(br_save *save, int world_count, int levels_per_world)
 {
     memset(save, 0, sizeof(*save));
@@ -205,14 +214,15 @@ static float get_f32(const unsigned char *p)
 
 void br_save_load(br_save *save)
 {
-    char path[256];
+    char path[256], tmp[256];
     unsigned char header[HEADER_V2];
     FILE *f;
     unsigned version;
     int worlds, per_world, w, l;
 
     save_path(path, sizeof(path));
-    f = fopen(path, "rb");
+    save_tmp_path(tmp, sizeof(tmp));
+    f = br_fs_open_saved(path, tmp);
     if (!f) {
         LOGI("save: no file at %s yet -- starting fresh", path);
         return;
@@ -299,7 +309,7 @@ done:
 
 int br_save_flush(br_save *save)
 {
-    char path[256];
+    char path[256], tmp[256];
     unsigned char header[HEADER_V2];
     FILE *f;
     int w, l;
@@ -308,9 +318,10 @@ int br_save_flush(br_save *save)
         return 0;
 
     save_path(path, sizeof(path));
-    f = fopen(path, "wb");
+    save_tmp_path(tmp, sizeof(tmp));
+    f = fopen(tmp, "wb");
     if (!f) {
-        LOGE("save: cannot write %s", path);
+        LOGE("save: cannot write %s", tmp);
         return -1;
     }
 
@@ -343,13 +354,21 @@ int br_save_flush(br_save *save)
         }
     }
 
-    fclose(f);
+    if (fclose(f) != 0) {
+        LOGE("save: could not close %s", tmp);
+        remove(tmp);
+        return -1;
+    }
+    if (br_fs_replace(tmp, path) != 0)
+        return -1;
+
     save->dirty = 0;
     LOGI("save: wrote %s (%d stars)", path, br_save_total_stars(save));
     return 0;
 
 fail:
-    LOGE("save: short write to %s", path);
+    LOGE("save: short write to %s -- %s is left alone", tmp, path);
     fclose(f);
+    remove(tmp);
     return -1;
 }

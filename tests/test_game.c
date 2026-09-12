@@ -1613,6 +1613,66 @@ static void test_world_names(br_game *game)
     CHECK(strcmp(br_world_name(999), "World") == 0, "out of range name not handled");
 }
 
+
+/* --------------------------------------------------- durability and sound */
+
+/* The loader treats a file it cannot parse as a first run, so a write caught
+ * half-done by a power cut used to erase everything. Flushes now build a .tmp
+ * and swap it in, and a load falls back to the .tmp when the swap itself was
+ * interrupted. */
+static void test_save_survives_interrupted_write(br_game *game)
+{
+    br_save save;
+    FILE *f;
+
+    begin("a save survives an interrupted write");
+
+    remove("assets_out/save.bin");
+    remove("assets_out/save.tmp");
+
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_record(&save, 0, 0, 3, 11.0f);
+    br_save_record(&save, 1, 2, 2, 22.0f);
+    CHECK(br_save_flush(&save) == 0, "flush failed");
+    br_save_free(&save);
+
+    f = fopen("assets_out/save.tmp", "rb");
+    CHECK(f == NULL, "the flush left its temporary behind");
+    if (f)
+        fclose(f);
+
+    /* A crash between removing the old file and renaming the new one leaves
+     * only the temporary. It is already whole, so it must still load. */
+    CHECK(rename("assets_out/save.bin", "assets_out/save.tmp") == 0,
+          "could not stage the interrupted write");
+
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_load(&save);
+    CHECK(br_save_total_stars(&save) == 5,
+          "an interrupted write lost the progress: %d stars survived, want 5",
+          br_save_total_stars(&save));
+    CHECK(br_save_level(&save, 0, 0)->best_time == 11.0f,
+          "the best time did not survive an interrupted write");
+    br_save_free(&save);
+
+    /* A half-written temporary must not be mistaken for the real thing. */
+    remove("assets_out/save.bin");
+    f = fopen("assets_out/save.tmp", "wb");
+    CHECK(f != NULL, "could not write a truncated save");
+    if (f) {
+        fwrite("BRSV", 1, 4, f);
+        fclose(f);
+    }
+    br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
+    br_save_load(&save);
+    CHECK(br_save_total_stars(&save) == 0,
+          "a truncated file was read as progress");
+    br_save_free(&save);
+
+    remove("assets_out/save.bin");
+    remove("assets_out/save.tmp");
+}
+
 int main(int argc, char **argv)
 {
     br_game game;
@@ -1648,6 +1708,7 @@ int main(int argc, char **argv)
     test_throttle_lock(&game);
     test_bike_cell(&game);
     test_settings_toggles(&game);
+    test_save_survives_interrupted_write(&game);
     test_result_actions();
     test_start_screen();
     test_mixer_long_sounds();

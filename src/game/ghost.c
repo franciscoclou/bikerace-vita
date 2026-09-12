@@ -22,6 +22,14 @@ static void store_path(char *out, unsigned size)
     snprintf(out, size, "%s/ghosts.bin", br_asset_root());
 }
 
+/* Written whole here first, then swapped in -- see br_fs_replace(). Losing a
+ * ghost matters less than losing progress, but the file is the larger of the
+ * two and so the likelier one to be caught mid-write. */
+static void store_tmp_path(char *out, unsigned size)
+{
+    snprintf(out, size, "%s/ghosts.tmp", br_asset_root());
+}
+
 static br_ghost *slot(const br_ghost_store *store, int world, int level)
 {
     if (world < 0 || world >= store->world_count ||
@@ -166,13 +174,14 @@ static void put_f32(unsigned char *p, float v)
 
 static void load(br_ghost_store *store)
 {
-    char path[256];
+    char path[256], tmp[256];
     unsigned char header[16], record[16];
     FILE *f;
     unsigned records, i;
 
     store_path(path, sizeof(path));
-    f = fopen(path, "rb");
+    store_tmp_path(tmp, sizeof(tmp));
+    f = br_fs_open_saved(path, tmp);
     if (!f) {
         LOGI("ghost: none recorded yet");
         return;
@@ -291,7 +300,7 @@ void br_ghost_put(br_ghost_store *store, int world, int level, const br_ghost *r
 
 int br_ghost_store_flush(br_ghost_store *store)
 {
-    char path[256];
+    char path[256], tmp[256];
     unsigned char header[16], record[16];
     FILE *f;
     unsigned records = 0;
@@ -305,9 +314,10 @@ int br_ghost_store_flush(br_ghost_store *store)
             records++;
 
     store_path(path, sizeof(path));
-    f = fopen(path, "wb");
+    store_tmp_path(tmp, sizeof(tmp));
+    f = fopen(tmp, "wb");
     if (!f) {
-        LOGE("ghost: cannot write %s", path);
+        LOGE("ghost: cannot write %s", tmp);
         return -1;
     }
 
@@ -340,13 +350,21 @@ int br_ghost_store_flush(br_ghost_store *store)
         }
     }
 
-    fclose(f);
+    if (fclose(f) != 0) {
+        LOGE("ghost: could not close %s", tmp);
+        remove(tmp);
+        return -1;
+    }
+    if (br_fs_replace(tmp, path) != 0)
+        return -1;
+
     store->dirty = 0;
     LOGI("ghost: wrote %s (%u runs)", path, records);
     return 0;
 
 fail:
-    LOGE("ghost: short write to %s", path);
+    LOGE("ghost: short write to %s -- %s is left alone", tmp, path);
     fclose(f);
+    remove(tmp);
     return -1;
 }
