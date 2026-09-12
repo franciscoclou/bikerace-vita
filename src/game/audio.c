@@ -20,6 +20,8 @@ static const char *s_files[BR_SFX_COUNT] = {
     "corvo_1.wav",
     "grito_homem_1.wav",
     "evil_laugh_bruxa_3.wav",
+    "roleta_start_botao.wav",   /* ui, cursor      */
+    "collect.wav",              /* ui, chose one   */
 };
 
 #define ENGINE_IDLE_VOLUME   0.8f
@@ -175,6 +177,25 @@ void br_game_audio_impact(br_game_audio *audio, float force, float ground_factor
 
     play_once(audio, BR_SFX_FALL_IMPACT, 1.0f);
     audio->impact_cooldown = note_seconds(audio, BR_SFX_FALL_IMPACT);
+}
+
+void br_game_audio_ui(br_game_audio *audio, br_ui_sound kind)
+{
+    /* Moving is quieter than choosing, and backing out lands between the two:
+     * the cursor should tick under the eye, not announce itself. */
+    static const struct { br_sfx sfx; float volume; } s_ui[] = {
+        { BR_SFX_UI_CLICK, 0.30f },   /* BR_UI_SOUND_MOVE   */
+        { BR_SFX_UI_CHIME, 0.55f },   /* BR_UI_SOUND_SELECT */
+        { BR_SFX_UI_CLICK, 0.62f },   /* BR_UI_SOUND_BACK   */
+    };
+
+    if (!audio->sound_on || (int)kind < 0 ||
+        (int)kind >= (int)(sizeof(s_ui) / sizeof(s_ui[0])))
+        return;
+
+    br_audio_stop(audio->ui_voice);
+    audio->ui_voice = br_audio_play(&audio->sfx[s_ui[kind].sfx],
+                                    s_ui[kind].volume, 0);
 }
 
 void br_game_audio_crash(br_game_audio *audio)

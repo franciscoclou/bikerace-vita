@@ -8,6 +8,7 @@
 #include "platform/log.h"
 #include "ui/glyphs.h"
 #include "ui/theme.h"
+#include "ui/uisound.h"
 
 /* Linked in by src/game/blobs.S on the Vita; the host tests hand these over as
  * pointers to files they read instead. */
@@ -53,6 +54,10 @@ int br_app_init(br_app *app)
     app->ghosts = br_ghost_store_open(app->game.pack.world_count,
                                       app->game.pack.worlds[0].level_count);
 
+    /* The menu widgets click through this rather than each carrying an audio
+     * pointer of its own -- see src/ui/uisound.h. */
+    br_ui_sound_bind(&app->game.audio);
+
     br_ui_art_load(&app->art);
     br_menu_init(&app->menu, &app->art);
     br_pause_init(&app->pause, &app->art);
@@ -77,6 +82,7 @@ int br_app_init(br_app *app)
 
 void br_app_free(br_app *app)
 {
+    br_ui_sound_bind(NULL);
     br_save_flush(&app->save);
     br_ghost_store_flush(app->ghosts);
     br_ghost_store_close(app->ghosts);
@@ -262,6 +268,7 @@ static void update_race(br_app *app, const br_input *in, float dt)
 
     if (in->pause_pressed) {
         br_game_audio_silence(&app->game.audio);
+        br_ui_sound_select();
         br_pause_open(&app->pause, app->game.ghost != NULL, ghost_showing(app));
         app->screen = BR_APP_PAUSED;
         return;

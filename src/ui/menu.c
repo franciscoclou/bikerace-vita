@@ -10,6 +10,7 @@
 #include "glyphs.h"
 #include "preview.h"
 #include "theme.h"
+#include "uisound.h"
 
 #define SCREEN_W 960.0f
 #define SCREEN_H 544.0f
@@ -309,12 +310,13 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
                               const br_level_pack *pack, const br_save *save)
 {
     grid g = grid_for(menu, pack);
-    int commit = 0, back = 0;
+    int commit = 0, back = 0, was_selected;
 
     if (*g.selection >= g.count)
         *g.selection = g.count - 1;
     if (*g.selection < 0)
         *g.selection = 0;
+    was_selected = *g.selection;
 
     if (repeated(menu, in, dt))
         move_selection(g.selection, g.count, g.columns, in->nav_x, in->nav_y);
@@ -343,11 +345,15 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
     if (in->back_pressed)
         back = 1;
 
+    if (*g.selection != was_selected)
+        br_ui_sound_move();
+
     switch (menu->screen) {
     case BR_MENU_BIKES:
         /* The choice applies as the cursor moves, so either button just
          * returns to wherever the list was opened from. */
         if (commit || back) {
+            br_ui_sound_back();
             if (menu->came_from == BR_MENU_LEVELS)
                 br_menu_open_levels(menu, menu->world);
             else
@@ -359,19 +365,26 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
         if (in->bikes_pressed || (commit && menu->world >= pack->world_count)) {
             if (menu->world >= pack->world_count)
                 menu->world = pack->world_count - 1;
+            br_ui_sound_select();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
         if (commit) {
+            /* A shut world stays silent. A click here would say the press
+             * had taken when nothing happened. */
             if (!br_save_world_unlocked(save, menu->world))
                 return BR_MENU_STAY;      /* not enough stars yet */
+            br_ui_sound_select();
             br_menu_open_levels(menu, menu->world);
             return BR_MENU_STAY;
         }
+        if (back)
+            br_ui_sound_back();
         return back ? BR_MENU_BACK : BR_MENU_STAY;
 
     default:
         if (in->bikes_pressed) {
+            br_ui_sound_select();
             br_menu_open_bikes(menu);
             return BR_MENU_STAY;
         }
@@ -380,10 +393,13 @@ br_menu_action br_menu_update(br_menu *menu, const br_input *in, float dt,
              * only affected how a tile was drawn, not whether it would open. */
             if (!br_save_level_unlocked(save, menu->world, menu->level))
                 return BR_MENU_STAY;
+            br_ui_sound_select();
             return BR_MENU_PLAY;
         }
-        if (back)
+        if (back) {
+            br_ui_sound_back();
             br_menu_open_worlds(menu);
+        }
         return BR_MENU_STAY;
     }
 }

@@ -6,6 +6,7 @@
 #include "../engine/render.h"
 #include "glyphs.h"
 #include "theme.h"
+#include "uisound.h"
 
 #define PANEL_W 570.0f
 #define PANEL_H 400.0f
@@ -55,11 +56,16 @@ br_result_action br_result_update(br_result *result, const br_input *in, float d
     int chosen = br_iconbar_update(&result->bar, in, dt);
 
     /* The buttons shortcut the row, so nobody has to arrow to the obvious
-     * choice: Circle tries again, Start steps out to the level list. */
-    if (in->back_pressed)
+     * choice: Circle tries again, Start steps out to the level list. Both are
+     * choices rather than ways out, so both sound like one. */
+    if (in->back_pressed) {
+        br_ui_sound_select();
         return BR_RESULT_REPEAT;
-    if (in->pause_pressed)
+    }
+    if (in->pause_pressed) {
+        br_ui_sound_select();
         return BR_RESULT_MENU;
+    }
 
     if (chosen < 0)
         return BR_RESULT_NOTHING;
