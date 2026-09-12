@@ -189,8 +189,9 @@ void br_game_audio_ui(br_game_audio *audio, br_ui_sound kind)
         { BR_SFX_UI_CLICK, 0.62f },   /* BR_UI_SOUND_BACK   */
     };
 
-    if (!audio->sound_on || (int)kind < 0 ||
-        (int)kind >= (int)(sizeof(s_ui) / sizeof(s_ui[0])))
+    /* The enum has no signed values, and gcc warns on ARM if this pretends
+     * otherwise, so only the upper bound is worth testing. */
+    if (!audio->sound_on || (unsigned)kind >= sizeof(s_ui) / sizeof(s_ui[0]))
         return;
 
     br_audio_stop(audio->ui_voice);
