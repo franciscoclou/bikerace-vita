@@ -28,6 +28,8 @@ DUMP_DIR="${DUMP_DIR:-$REPO_ROOT/dumps}"
 DOCKER_IMAGE="${DOCKER_IMAGE:-bikerace-vitasdk:latest}"
 BASE_IMAGE="${BASE_IMAGE:-vitasdk/vitasdk:latest}"
 
-FTP_URL="ftp://${VITA_IP}:${VITA_FTP_PORT}"
-
 if [ -f "$REPO_ROOT/scripts/env.local.sh" ]; then . "$REPO_ROOT/scripts/env.local.sh"; fi
+
+# Anything derived from the values above has to come after the local overrides,
+# or a VITA_IP set in env.local.sh would leave FTP_URL pointing at the default.
+FTP_URL="ftp://${VITA_IP}:${VITA_FTP_PORT}"

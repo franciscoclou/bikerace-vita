@@ -22,6 +22,10 @@ psp2core-*.psp2dmp
 dumps/*.psp2dmp
 dumps/*.txt
 
+# --- local overrides ---
+# Per-machine IPs etc. See scripts/env.sh.
+scripts/env.local.sh
+
 # --- editor / os ---
 .vscode/
 .idea/
