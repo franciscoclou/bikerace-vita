@@ -1,0 +1,14 @@
+# Force LF on checkout for everyone, regardless of the cloning machine's own
+# core.autocrlf setting. Without this, a checkout on a machine with
+# core.autocrlf=true (Git for Windows' own installer default) turns every
+# "#!/usr/bin/env bash" into a CRLF-terminated shebang, which the kernel reads
+# as looking for a binary literally named "bash\r" -- and every script in the
+# repo fails to run. Confirmed reproducible: a plain `git clone` on a machine
+# with that setting breaks scripts/extract_assets.sh this way.
+* text=auto eol=lf
+
+# Explicit rather than relying on text=auto's content-sniffing to skip these.
+*.png binary
+*.vpk binary
+*.bin binary
+*.ttf binary
