@@ -41,14 +41,17 @@ dumps/         crash dumps pulled off the Vita
 
 | | |
 |---|---|
-| Vita | `192.168.1.177`, FTP on port `1337` (VitaShell) |
-| This PC | `192.168.1.149` |
+| Vita FTP port | `1337` (VitaShell) |
 | Log port | UDP `18194` |
 | Title ID | `BIKR00001` |
 
-Those IPs change. They live in one place — [scripts/env.sh](scripts/env.sh) —
-and every script reads them from there. To override without touching a tracked
-file, create `scripts/env.local.sh` (gitignored):
+The IPs are **not** listed here, because they change with whatever network the
+Vita is on and a table in a README goes stale the first time it does. They live
+in one place — [scripts/env.sh](scripts/env.sh) — and every script reads them
+from there. Run any script, or `./scripts/deploy.sh`, to see the ones in force.
+
+`env.sh` carries a home-network default. To point at a different network
+without touching a tracked file, create `scripts/env.local.sh` (gitignored):
 
 ```sh
 PC_IP=192.168.1.42
@@ -94,7 +97,7 @@ The build prints the deploy commands when it finishes.
 Most patches only change code, so only `eboot.bin` needs to move:
 
 ```sh
-curl -T build/eboot.bin ftp://192.168.1.177:1337/ux0:/app/BIKR00001/eboot.bin
+curl -T build/eboot.bin "$FTP_URL/ux0:/app/BIKR00001/eboot.bin"
 ```
 
 A full `.vpk` install is needed the first time, and whenever the LiveArea
@@ -153,7 +156,7 @@ A crash writes `ux0:/data/psp2core-*.psp2dmp`. To read it:
 `getdump.sh` wraps the FTP listing + `sort -V | tail -1` pick:
 
 ```sh
-curl "ftp://192.168.1.177:1337/ux0:/data/$(curl -s ftp://192.168.1.177:1337/ux0:/data/ \
+curl "$FTP_URL/ux0:/data/$(curl -s "$FTP_URL/ux0:/data/" \
   | awk '{print $NF}' | grep '^psp2core-.*eboot\.bin\.psp2dmp$' | sort -V | tail -n 1)" \
   -o psp2core-latest.psp2dmp
 ```
@@ -244,8 +247,9 @@ the race, pause, and the end-of-run panel. Every screen is its own module under
 round buttons in a row via `src/ui/iconbar.c`; wordier lists use
 `src/ui/optionlist.c`. Both share the same navigation contract rather than each
 growing its own. The button reference lives once in `src/ui/controls.c`, since
-settings shows all of it and pause shows only the race half. The way out is
-one button in one corner -- `br_ui_back_button_*` in `src/ui/art.c` -- shared
+settings shows all of it and pause shows only the race half. Anything that
+cannot be taken back asks first, with "no" selected: reset, unlock everything,
+and leaving the game. The way out is one button in one corner -- `br_ui_back_button_*` in `src/ui/art.c` -- shared
 by the world, level and bike grids and by settings, so "back" is always in the
 same place and every screen reachable by touch can be left by touch. Colours live in `src/ui/theme.h`; controller glyphs are drawn from
 primitives in `src/ui/glyphs.c`, since a touch game shipped none.
@@ -265,12 +269,14 @@ back. The climb and drop hand over at 95% played so the change lands on the
 sample's own beat. Landings sound only above a force threshold and only after
 air time. All of that is ported as-is in [src/game/audio.c](src/game/audio.c).
 
-The menus click. The original was a touch game and made no interface sound at
-all, so the two used here are borrowed from its roulette: a dry button thunk as
-the cursor steps, a brighter chime when something is chosen. A press that is
-refused -- a locked world, a locked level -- stays silent, because a click there
-would say the press had taken. Every click shares one voice, so holding a
-direction ticks along with the auto-repeat instead of stacking a dozen
+The menus tick. One sample, `roleta_start_botao` from the original's roulette,
+at one level, for every press there is — moving the cursor, choosing, backing
+out. Grading them (a quieter one for the cursor, a chime for a choice) was
+tried and reverted: it made the interface sound like it was commenting on
+itself. The only distinction left is that a refused press — a locked world, a
+locked level — does not tick at all, because a tick there would say the press
+had taken; it shakes the tile instead. Every tick takes back the same voice, so
+holding a direction ticks along with the auto-repeat rather than stacking
 overlapping copies onto the mixer. The widgets reach it through
 [src/ui/uisound.c](src/ui/uisound.c), which is a deliberate global: a shared
 list or icon row takes an input and a frame time, and that is the whole of its
@@ -311,6 +317,10 @@ which leaves a window of microseconds in which neither name resolves.
 absent — it is already whole by the time the window opens. `ghosts.bin` is
 written the same way.
 
+A press on a locked tile shakes it for a third of a second. The gate used to
+swallow the press entirely, which reads as the menu having missed it rather
+than having refused it.
+
 Gating follows the original: finishing a level opens the next, rolling into the
 next world, and a world needs a running star total — 12, 28, 44 and so on to
 228 for world 12, and 66 for the seasonal ones. **World 16 is absent from the
@@ -345,7 +355,12 @@ drawing the old one until the level was re-entered.
 
 Ghosts live in `ux0:data/bikerace/ghosts.bin`, apart from `save.bin`, so a
 damaged ghost can never cost anyone their progress. Resetting the progress
-clears them too. Pause offers a switch to
+clears them too.
+
+A run is stored by its slot index, so the file also records the shape of the
+level pack it was recorded against. A file for a pack of another shape is
+dropped rather than loaded — ghosts are re-earnable, and one on the wrong track
+is worse than none. Pause offers a switch to
 hide it, and only when the level has one.
 
 `br_game.ghost_hidden` is the player's own choice, deliberately **not** the
