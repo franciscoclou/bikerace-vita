@@ -149,6 +149,29 @@ The first four steps need `apk/` in place — see step 2 above.
 logger stubbed, and runs the real physics over all 152 levels. It runs twice:
 once as a handheld, once as a PlayStation TV.
 
+### While developing
+
+```sh
+./scripts/log.sh            # live UDP debug log -> debug.log
+./scripts/getdump.sh        # pull the newest crash dump off the Vita
+./scripts/parsedump.sh      # symbolise it against build/bikerace
+./scripts/find.sh <Class>   # locate decompiled Java by original class name
+./scripts/deploy.sh         # print the curl commands to copy a build over
+```
+
+The Vita has no console, so the game sends every log line as a UDP datagram to
+your PC and mirrors it to `ux0:data/bikerace/debug.log`, which survives a crash
+that takes the network with it.
+
+Network addresses, title id and paths live in
+[scripts/env.sh](scripts/env.sh). Override them in `scripts/env.local.sh`
+(gitignored) rather than editing a tracked file.
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the engine fits
+together and [docs/PORTING.md](docs/PORTING.md) tracks what is done. `CLAUDE.md`
+is the working notes for the port — conventions, gotchas, and the reasoning
+behind decisions that look arbitrary.
+
 ---
 
 ## Credits
