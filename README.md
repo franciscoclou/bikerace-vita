@@ -168,9 +168,7 @@ Network addresses, title id and paths live in
 (gitignored) rather than editing a tracked file.
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the engine fits
-together and [docs/PORTING.md](docs/PORTING.md) tracks what is done. `CLAUDE.md`
-is the working notes for the port — conventions, gotchas, and the reasoning
-behind decisions that look arbitrary.
+together and [docs/PORTING.md](docs/PORTING.md) tracks what is done.
 
 ---
 

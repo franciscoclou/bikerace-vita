@@ -46,3 +46,4 @@ compile_commands.json
 tools/leveldump/classes/
 tests/test_game
 tests/screenshot
+CLAUDE.md
