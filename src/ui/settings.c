@@ -210,15 +210,22 @@ void br_settings_draw(const br_settings *settings, const br_font *display,
 
     if (settings->confirming != BR_CONFIRM_NONE) {
         float cw = 460.0f, cx = (BR_UI_W - cw) * 0.5f;
+        int reset = settings->confirming == BR_CONFIRM_RESET;
 
         draw_panel(settings, cx, 150.0f, cw, 260.0f);
         br_font_draw_centered(display, "ARE YOU SURE?", BR_UI_W * 0.5f, 172.0f,
                               34.0f, &BR_INK);
+        /* Two lines: what goes, and what survives. Saying only the first left
+         * "unlock everything" claiming it could not be undone when a reset
+         * plainly undoes it. */
         br_font_draw_centered(body,
-                              settings->confirming == BR_CONFIRM_RESET
-                                  ? "Every star, best time and ghost will be lost."
-                                  : "Every world opens. This cannot be undone.",
-                              BR_UI_W * 0.5f, 224.0f, 22.0f, &BR_INK);
+                              reset ? "Every star, best time and ghost goes."
+                                    : "Every world and level opens at once.",
+                              BR_UI_W * 0.5f, 204.0f, 22.0f, &BR_INK);
+        br_font_draw_centered(body,
+                              reset ? "Sound, music and your bike stay."
+                                    : "Only resetting the progress undoes it.",
+                              BR_UI_W * 0.5f, 230.0f, 22.0f, &BR_INK);
         br_option_list_draw(&settings->confirm_list, body, 26.0f,
                             &settings->art->t_level_tile,
                             &settings->art->t_level_tile_active,
