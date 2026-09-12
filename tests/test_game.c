@@ -1926,6 +1926,72 @@ static void test_old_save_versions_load(br_game *game)
     remove("assets_out/save.bin");
 }
 
+/* Runs are stored by slot index, so a file recorded against a differently
+ * shaped pack would put every ghost on the wrong level. */
+static void test_ghosts_reject_a_different_pack(br_game *game)
+{
+    br_ghost_store *store;
+    br_ghost_recorder rec;
+    br_ghost run;
+    unsigned char header[16];
+    vec2 head;
+    FILE *f;
+    int i, per_world = game->pack.worlds[0].level_count;
+
+    begin("ghosts recorded against another pack are dropped");
+
+    remove("assets_out/ghosts.bin");
+    remove("assets_out/ghosts.tmp");
+
+    br_ghost_record_begin(&rec);
+    for (i = 0; i < 60; i++) {
+        float t = (float)i / 60.0f;
+        v2_set(&head, t * 2.0f, 1.0f);
+        br_ghost_record_tick(&rec, t, &head, 0.0f);
+    }
+    run.samples = rec.samples;
+    run.count = rec.count;
+    run.bike = BR_BIKE_REGULAR;
+    run.time = 1.0f;
+
+    store = br_ghost_store_open(game->pack.world_count, per_world);
+    br_ghost_put(store, 0, 0, &run);
+    br_ghost_store_flush(store);
+    br_ghost_store_close(store);
+
+    /* It reads back against the pack it was written for. */
+    store = br_ghost_store_open(game->pack.world_count, per_world);
+    CHECK(br_ghost_get(store, 0, 0) != NULL, "the ghost did not survive a reload");
+    br_ghost_store_close(store);
+
+    /* Against a pack of another shape it is refused rather than misplaced. */
+    store = br_ghost_store_open(game->pack.world_count, per_world + 1);
+    CHECK(store && br_ghost_get(store, 0, 0) == NULL,
+          "a ghost recorded for a %d-level world loaded into a %d-level one",
+          per_world, per_world + 1);
+    br_ghost_store_close(store);
+
+    /* A v1 file has no shape recorded and still loads, since the pack has not
+     * changed since it was written. */
+    f = fopen("assets_out/ghosts.bin", "rb+");
+    CHECK(f != NULL, "could not reopen the ghost file");
+    if (f) {
+        CHECK(fread(header, 1, sizeof(header), f) == sizeof(header),
+              "could not read the ghost header");
+        header[4] = 1;                      /* claim version 1 */
+        memset(header + 12, 0, 4);          /* which has no shape field */
+        fseek(f, 0, SEEK_SET);
+        fwrite(header, 1, sizeof(header), f);
+        fclose(f);
+    }
+    store = br_ghost_store_open(game->pack.world_count, per_world);
+    CHECK(store && br_ghost_get(store, 0, 0) != NULL,
+          "a v1 ghost file no longer loads");
+    br_ghost_store_close(store);
+
+    remove("assets_out/ghosts.bin");
+}
+
 /* A press the gate refuses shakes the tile. Silence alone reads as the menu
  * having missed the press rather than having refused it. */
 static void test_locked_tile_shakes(br_game *game)
@@ -2009,6 +2075,7 @@ int main(int argc, char **argv)
     test_bike_cell(&game);
     test_settings_toggles(&game);
     test_old_save_versions_load(&game);
+    test_ghosts_reject_a_different_pack(&game);
     test_locked_tile_shakes(&game);
     test_settings_touch_back(&game);
     test_save_survives_interrupted_write(&game);

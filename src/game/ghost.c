@@ -9,7 +9,9 @@
 #include "../platform/log.h"
 
 #define GHOST_MAGIC   "BRGH"
-#define GHOST_VERSION 1
+/* v2 records the shape of the level pack the runs were recorded against.
+ * v1 files still load: they predate the field, and the pack has not changed. */
+#define GHOST_VERSION 2
 
 struct br_ghost_store {
     br_ghost *ghosts;          /* world_count * levels_per_world, sparse */
@@ -177,7 +179,7 @@ static void load(br_ghost_store *store)
     char path[256], tmp[256];
     unsigned char header[16], record[16];
     FILE *f;
-    unsigned records, i;
+    unsigned records, version, i;
 
     store_path(path, sizeof(path));
     store_tmp_path(tmp, sizeof(tmp));
@@ -188,13 +190,36 @@ static void load(br_ghost_store *store)
     }
 
     if (fread(header, 1, sizeof(header), f) != sizeof(header) ||
-        memcmp(header, GHOST_MAGIC, 4) != 0 ||
-        get_u32(header + 4) != GHOST_VERSION) {
-        LOGW("ghost: %s is not a ghost file this build reads -- ignoring it", path);
+        memcmp(header, GHOST_MAGIC, 4) != 0) {
+        LOGW("ghost: %s is not a ghost file -- ignoring it", path);
+        fclose(f);
+        return;
+    }
+    version = get_u32(header + 4);
+    if (version < 1 || version > GHOST_VERSION) {
+        LOGW("ghost: %s is version %u, which this build cannot read -- "
+             "ignoring it", path, version);
         fclose(f);
         return;
     }
     records = get_u32(header + 8);
+
+    /* A run is stored by slot index, so a pack of a different shape would put
+     * every ghost on the wrong level. The file says what it was recorded
+     * against; when that disagrees, drop the lot. Ghosts are re-earnable and
+     * a ghost on the wrong track is worse than none. */
+    if (version >= 2) {
+        unsigned shape = get_u32(header + 12);
+
+        if ((int)(shape & 0xffff) != store->levels_per_world ||
+            (int)(shape >> 16) != store->world_count) {
+            LOGW("ghost: %s holds runs for a %u x %u pack, not %d x %d -- "
+                 "ignoring it", path, shape >> 16, shape & 0xffff,
+                 store->world_count, store->levels_per_world);
+            fclose(f);
+            return;
+        }
+    }
 
     for (i = 0; i < records; i++) {
         br_ghost *g;
@@ -300,10 +325,15 @@ void br_ghost_put(br_ghost_store *store, int world, int level, const br_ghost *r
     if (g->count > 0 && g->time > 0.0f && run->time >= g->time)
         return;
 
+    /* Empty the slot before reaching for memory. Clearing only the count left
+     * a slot that reported "no ghost" but kept its old time, which then beat
+     * every later run and so could never be replaced. */
     free(g->samples);
+    memset(g, 0, sizeof(*g));
+
     g->samples = malloc(sizeof(br_ghost_sample) * (size_t)run->count);
     if (!g->samples) {
-        g->count = 0;
+        LOGE("ghost: out of memory for a %d-sample run", run->count);
         return;
     }
     memcpy(g->samples, run->samples, sizeof(br_ghost_sample) * (size_t)run->count);
@@ -340,7 +370,8 @@ int br_ghost_store_flush(br_ghost_store *store)
     memcpy(header, GHOST_MAGIC, 4);
     put_u32(header + 4, GHOST_VERSION);
     put_u32(header + 8, records);
-    put_u32(header + 12, 0);
+    put_u32(header + 12, (unsigned)(store->levels_per_world & 0xffff) |
+                         ((unsigned)store->world_count << 16));
     if (fwrite(header, 1, sizeof(header), f) != sizeof(header))
         goto fail;
 
