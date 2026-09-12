@@ -428,10 +428,10 @@ static const br_color STAR_OFF_SEL = { 0.42f, 0.24f, 0.10f, 1.00f };
 static void draw_background(const br_menu *menu)
 {
     if (br_ui_has(&menu->art->t_background)) {
-        br_draw_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &menu->art->t_background, NULL);
-        br_fill_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &BR_SCRIM);
+        br_draw_screen(&menu->art->t_background, NULL);
+        br_fill_screen(&BR_SCRIM);
     } else {
-        br_fill_rect(0.0f, 0.0f, SCREEN_W, SCREEN_H, &BR_PANEL);
+        br_fill_screen(&BR_PANEL);
     }
 }
 
@@ -552,8 +552,12 @@ static void draw_back_button(const br_menu *menu, const br_font *body,
 
     br_ui_back_button_rect(&bx, &by, &size);
     br_ui_back_button_draw(menu->art, menu->touch_target == BR_TOUCH_BACK);
-    br_hints_draw(hints, count, body, bx + size + 18.0f,
-                  by + (size - 26.0f) * 0.5f, 26.0f, &BR_TEXT);
+    /* With no button drawn the hints move over into its place, rather than
+     * sitting indented against nothing. */
+    if (br_ui_back_button_visible())
+        bx += size + 18.0f;
+    br_hints_draw(hints, count, body, bx, by + (size - 26.0f) * 0.5f, 26.0f,
+                  &BR_TEXT);
 }
 
 static void draw_worlds(const br_menu *menu, const br_level_pack *pack,

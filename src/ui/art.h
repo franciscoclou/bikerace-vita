@@ -55,8 +55,14 @@ void br_ui_panel(const br_ui_art *art, float x, float y, float w, float h);
  * The world, level and bike grids and the settings modal all need one and they
  * all need it in the same place, so the position, the hit test and the drawing
  * live here once rather than in each screen. `pressed` draws it held down,
- * which is how a touch shows it has taken. */
+ * which is how a touch shows it has taken.
+ *
+ * It is a touch affordance and nothing else -- Circle has always done the same
+ * job -- so on a PlayStation TV it is not drawn and never hit. Callers ask
+ * br_ui_back_button_visible() when the answer moves something else, such as
+ * where the button hints beside it start. */
 void br_ui_back_button_rect(float *x, float *y, float *size);
+int  br_ui_back_button_visible(void);
 int  br_ui_back_button_hit(float px, float py);
 void br_ui_back_button_draw(const br_ui_art *art, int pressed);
 

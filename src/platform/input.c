@@ -5,6 +5,8 @@
 
 #include <string.h>
 
+#include "device.h"
+
 #define TOUCH_MAX_X 1919.0f  /* front panel reports 1920x1088 */
 #define TOUCH_MAX_Y 1087.0f
 #define STICK_DEADZONE 24
@@ -13,7 +15,14 @@
 
 void br_input_init(void)
 {
+    /* Port 0 and the non-Ext read are right for both machines: on a
+     * PlayStation TV this is the first paired pad, and a DualShock's L1 and R1
+     * arrive as LTRIGGER and RTRIGGER, which is what the lean reads. */
     sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG_WIDE);
+
+    if (br_device_is_tv())
+        return;         /* no panel to start, and nothing would report */
+
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
     sceTouchEnableTouchForce(SCE_TOUCH_PORT_FRONT);
 }
@@ -39,7 +48,8 @@ void br_input_poll(br_input *in)
     in->buttons = pad.buttons;
 
     memset(&touch, 0, sizeof(touch));
-    sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch, 1);
+    if (!br_device_is_tv())
+        sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch, 1);
 
     in->touch_count = touch.reportNum > 2 ? 2 : touch.reportNum;
     for (i = 0; i < in->touch_count; i++) {

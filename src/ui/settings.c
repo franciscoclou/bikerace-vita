@@ -163,16 +163,22 @@ static void draw_controls(const br_settings *settings, const br_font *display,
                           const br_font *body)
 {
     static const br_hint hints[] = { { BR_BUTTON_CIRCLE, "back" } };
+    const float row_h = 33.0f;
+    float rows = (float)br_controls_count(BR_CONTROLS_ALL);
     float w = 660.0f;
     float x = (BR_UI_W - w) * 0.5f;
-    float y = 34.0f;
+    /* The panel is cut to the list rather than the list floating in a fixed
+     * one: a PlayStation TV has no touch rows to show, and two rows of empty
+     * paper under the last line reads as something missing. */
+    float h = 72.0f + rows * row_h + 4.0f;
+    float y = (BR_UI_H - h) * 0.5f;
 
-    draw_panel(settings, x, y, w, 466.0f);
+    draw_panel(settings, x, y, w, h);
     br_font_draw_centered(display, "CONTROLS", BR_UI_W * 0.5f, y + 14.0f, 34.0f,
                           &BR_INK);
 
     br_controls_draw(BR_CONTROLS_ALL, settings->art, body, x + 44.0f, y + 72.0f,
-                     33.0f, &BR_INK);
+                     row_h, &BR_INK);
 
     br_hints_draw(hints, 1, body,
                   (BR_UI_W - br_hints_width(hints, 1, body, 26.0f)) * 0.5f,
@@ -189,7 +195,7 @@ void br_settings_draw(const br_settings *settings, const br_font *display,
     float x = (BR_UI_W - PANEL_W) * 0.5f;
 
     br_ui_begin();
-    br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
+    br_fill_screen(&BR_DIM);
 
     /* Drawn for every state, and before them: it sits in the bottom-left
      * corner, clear of all three panels, and it is the only way out of this

@@ -77,6 +77,7 @@ target_link_libraries(${PROJECT_NAME}
   png
   z
   m
+  SceSysmem_stub
   SceGxm_stub
   SceDisplay_stub
   SceSysmodule_stub

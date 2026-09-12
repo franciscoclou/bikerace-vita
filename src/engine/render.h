@@ -50,6 +50,13 @@ void  br_identity(void);
 /* Replaces the current transform with one where (0,0) is the top-left pixel
  * and (960,544) the bottom-right, for menus and overlays. */
 void  br_ui_begin(void);
+/* Everything drawn through br_ui_begin() lands inside a title-safe area on a
+ * television, so the interface's own 960x544 no longer reaches the edges of
+ * the screen. Backdrops and dimming layers use these instead, and cover
+ * whatever is actually there. */
+void  br_ui_screen_rect(float *x, float *y, float *w, float *h);
+void  br_fill_screen(const br_color *colour);
+void  br_draw_screen(const br_texture *tex, const br_color *tint);
 void  br_translate(float x, float y);
 void  br_rotate_deg(float degrees);
 void  br_scale(float x, float y);

@@ -1,31 +1,38 @@
 #include "controls.h"
 
+#include "../platform/device.h"
 #include "glyphs.h"
 
 /* `race` marks the ones worth showing mid-level; everything is listed in
- * settings. */
+ * settings. `touch` marks the rows that describe a panel the PlayStation TV
+ * does not have -- they are left out there rather than telling someone to tap
+ * a television. Nothing is lost: every one of them has a button beside it in
+ * this same list. */
 static const struct {
     br_button   button;
     const char *what;
     int         race;
+    int         touch;
 } s_controls[] = {
-    { BR_BUTTON_CROSS,    "Accelerate",                    1 },
-    { BR_BUTTON_SQUARE,   "Brake, hold to reverse",        1 },
-    { BR_BUTTON_RTRIGGER, "Lean forward",                  1 },
-    { BR_BUTTON_LTRIGGER, "Lean back",                     1 },
-    { BR_BUTTON_CIRCLE,   "Reset the level",               1 },
-    { BR_BUTTON_START,    "Pause",                         1 },
-    { BR_BUTTON_TOUCH,    "Left half brakes, right half accelerates", 1 },
-    { BR_BUTTON_CROSS,    "Choose, in the menus",          0 },
-    { BR_BUTTON_CIRCLE,   "Back, in the menus",            0 },
-    { BR_BUTTON_TRIANGLE, "Bike list, from the menus",     0 },
-    { BR_BUTTON_DPAD,     "Move around the menus",         0 },
-    { BR_BUTTON_TOUCH,    "Tap anything in the menus",     0 },
+    { BR_BUTTON_CROSS,    "Accelerate",                    1, 0 },
+    { BR_BUTTON_SQUARE,   "Brake, hold to reverse",        1, 0 },
+    { BR_BUTTON_RTRIGGER, "Lean forward",                  1, 0 },
+    { BR_BUTTON_LTRIGGER, "Lean back",                     1, 0 },
+    { BR_BUTTON_CIRCLE,   "Reset the level",               1, 0 },
+    { BR_BUTTON_START,    "Pause",                         1, 0 },
+    { BR_BUTTON_TOUCH,    "Left half brakes, right half accelerates", 1, 1 },
+    { BR_BUTTON_CROSS,    "Choose, in the menus",          0, 0 },
+    { BR_BUTTON_CIRCLE,   "Back, in the menus",            0, 0 },
+    { BR_BUTTON_TRIANGLE, "Bike list, from the menus",     0, 0 },
+    { BR_BUTTON_DPAD,     "Move around the menus",         0, 0 },
+    { BR_BUTTON_TOUCH,    "Tap anything in the menus",     0, 1 },
 };
 #define CONTROL_COUNT ((int)(sizeof(s_controls) / sizeof(s_controls[0])))
 
 static int in_scope(int index, br_controls_scope scope)
 {
+    if (s_controls[index].touch && br_device_is_tv())
+        return 0;
     return scope == BR_CONTROLS_ALL || s_controls[index].race;
 }
 

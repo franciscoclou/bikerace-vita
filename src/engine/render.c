@@ -4,12 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../platform/device.h"
 #include "../platform/log.h"
 
 #define SCREEN_W 960
 #define SCREEN_H 544
 
 static float s_aspect = (float)SCREEN_W / (float)SCREEN_H;
+/* 1 on a handheld. Less on a television, which may crop its own edges -- see
+ * br_device_ui_inset(). Only the interface shrinks; the scene still fills the
+ * screen, because losing a little of the sky costs nothing. */
+static float s_ui_scale = 1.0f;
 
 static br_image   s_white_image;
 static br_texture s_white;
@@ -37,8 +42,10 @@ void br_render_init(void)
         s_white = br_texture_region(&s_white_image, 0.0f, 0.0f, 1.0f, 1.0f);
     }
 
-    LOGI("render: %dx%d, aspect %.4f, premultiplied-alpha blending",
-         SCREEN_W, SCREEN_H, s_aspect);
+    s_ui_scale = 1.0f - br_device_ui_inset() * 2.0f;
+
+    LOGI("render: %dx%d, aspect %.4f, premultiplied-alpha blending, ui at %.0f%%",
+         SCREEN_W, SCREEN_H, s_aspect, s_ui_scale * 100.0f);
 }
 
 float br_render_aspect(void) { return s_aspect; }
@@ -56,10 +63,44 @@ void br_render_end(void)
     vglSwapBuffers(GL_FALSE);
 }
 
+void br_ui_screen_rect(float *x, float *y, float *w, float *h)
+{
+    /* The interface is drawn inset on a television, so 0,0..960,544 no longer
+     * reaches the corners. A backdrop has to cover what is left, or the inset
+     * shows as a black frame around the picture. */
+    float mx = ((float)SCREEN_W / s_ui_scale - (float)SCREEN_W) * 0.5f;
+    float my = ((float)SCREEN_H / s_ui_scale - (float)SCREEN_H) * 0.5f;
+
+    *x = -mx;
+    *y = -my;
+    *w = (float)SCREEN_W + mx * 2.0f;
+    *h = (float)SCREEN_H + my * 2.0f;
+}
+
+void br_fill_screen(const br_color *colour)
+{
+    float x, y, w, h;
+
+    br_ui_screen_rect(&x, &y, &w, &h);
+    br_fill_rect(x, y, w, h, colour);
+}
+
+void br_draw_screen(const br_texture *tex, const br_color *tint)
+{
+    float x, y, w, h;
+
+    br_ui_screen_rect(&x, &y, &w, &h);
+    br_draw_rect(x, y, x + w, y + h, tex, tint);
+}
+
 void br_ui_begin(void)
 {
     glLoadIdentity();
     glScalef(2.0f / (float)SCREEN_W, -2.0f / (float)SCREEN_H, 1.0f);
+    /* Applied here, between the clip scale and the move to a top-left origin,
+     * so it shrinks about the centre of the screen and every screen gets it
+     * from the one place they all draw through. */
+    glScalef(s_ui_scale, s_ui_scale, 1.0f);
     glTranslatef(-(float)SCREEN_W * 0.5f, -(float)SCREEN_H * 0.5f, 0.0f);
 }
 

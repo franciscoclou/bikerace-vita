@@ -100,7 +100,7 @@ void br_result_draw(const br_result *result, const br_font *display,
     char text[96];
 
     br_ui_begin();
-    br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
+    br_fill_screen(&BR_DIM);
 
     /* The result window has its own tyre-marked paper; it only wants the frame. */
     br_ui_panel(result->art, x, PANEL_Y, PANEL_W, PANEL_H);

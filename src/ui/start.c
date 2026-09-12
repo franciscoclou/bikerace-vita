@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../engine/render.h"
+#include "../platform/device.h"
 #include "glyphs.h"
 #include "theme.h"
 
@@ -80,9 +81,9 @@ void br_start_draw_backdrop(const br_start *start, const br_font *display,
          * cropped away rather than squashing the rider. */
         br_texture cropped = start->art->t_start_screen;
         cropped.v1 = BR_UI_H / 640.0f;
-        br_draw_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &cropped, NULL);
+        br_draw_screen(&cropped, NULL);
     } else {
-        br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_PANEL);
+        br_fill_screen(&BR_PANEL);
     }
 
     if (br_ui_has(&start->art->t_logo)) {
@@ -106,11 +107,14 @@ void br_start_draw_backdrop(const br_start *start, const br_font *display,
 void br_start_draw(const br_start *start, const br_font *display,
                    const br_font *body)
 {
+    /* "tap" is last so a television, which has nothing to tap, simply shows
+     * one fewer. */
     static const br_hint hints[] = {
         { BR_BUTTON_CROSS, "choose" },
         { BR_BUTTON_DPAD,  "move" },
         { BR_BUTTON_TOUCH, "tap" },
     };
+    int hint_count = br_device_is_tv() ? 2 : 3;
 
     br_start_draw_backdrop(start, display, body);
 
@@ -121,7 +125,7 @@ void br_start_draw(const br_start *start, const br_font *display,
         };
         float cw = 420.0f, cx = (BR_UI_W - cw) * 0.5f;
 
-        br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
+        br_fill_screen(&BR_DIM);
         br_ui_panel(start->art, cx, 186.0f, cw, 226.0f);
         br_font_draw_centered(display, "LEAVE THE GAME?", BR_UI_W * 0.5f,
                               208.0f, 32.0f, &BR_INK);
@@ -141,5 +145,6 @@ void br_start_draw(const br_start *start, const br_font *display,
                         &start->art->t_level_tile, &start->art->t_level_tile_active,
                         &BR_PANEL, &BR_ROW_SELECTED, &BR_TEXT, &BR_TEXT);
 
-    br_hints_draw(hints, 3, body, OPTION_X, BR_UI_H - 42.0f, 26.0f, &BR_TEXT);
+    br_hints_draw(hints, hint_count, body, OPTION_X, BR_UI_H - 42.0f, 26.0f,
+                  &BR_TEXT);
 }

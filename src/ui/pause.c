@@ -82,7 +82,7 @@ void br_pause_draw(const br_pause *pause, const br_font *display,
     float x = (BR_UI_W - PANEL_W) * 0.5f;
 
     br_ui_begin();
-    br_fill_rect(0.0f, 0.0f, BR_UI_W, BR_UI_H, &BR_DIM);
+    br_fill_screen(&BR_DIM);
     br_ui_panel(pause->art, x, y, PANEL_W, h);
 
     br_font_draw_centered(display, pause->showing_controls ? "CONTROLS" : "PAUSED",

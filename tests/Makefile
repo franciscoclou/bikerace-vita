@@ -3,8 +3,13 @@
 # camera, broad phase, track mesh, texture loading and game loop are the same
 # sources the Vita build compiles.
 #
-#   make -C tests run          run the checks
+#   make -C tests run          run the checks, on both machines
 #   make -C tests run ARGS=-v  ... with the game's own log output
+#
+# "Both machines" is not optional: the PlayStation TV is the same hardware with
+# the touch panel taken away, and the second pass is what proves nothing has
+# come to depend on it. BR_FAKE_TV is what src/platform/device.c reads instead
+# of sceKernelIsPSVitaTV() when built for the host.
 
 CC      ?= cc
 PNG_CFLAGS := $(shell pkg-config --cflags libpng)
@@ -20,7 +25,7 @@ CORE := \
   ../src/game/board.c ../src/game/level.c ../src/game/camera.c \
   ../src/game/bike.c ../src/game/track_mesh.c ../src/game/scene.c \
   ../src/game/game.c ../src/game/save.c ../src/game/ghost.c ../src/game/audio.c \
-  ../src/platform/fs.c ../src/platform/wav.c ../src/platform/mixer.c \
+  ../src/platform/fs.c ../src/platform/device.c ../src/platform/wav.c ../src/platform/mixer.c \
   ../src/ui/preview.c ../src/ui/art.c ../src/ui/glyphs.c ../src/ui/controls.c \
   ../src/ui/optionlist.c ../src/ui/iconbar.c ../src/ui/menu.c ../src/ui/pause.c \
   ../src/ui/start.c ../src/ui/settings.c ../src/ui/result.c ../src/app.c \
@@ -33,7 +38,11 @@ SHOTS := $(CORE) screenshot.c
 all: run
 
 run: test_game
+	@echo "-- PS Vita handheld"
 	cd .. && BR_ASSET_ROOT=assets_out tests/test_game $(ARGS)
+	@echo
+	@echo "-- PlayStation TV (no touch panel)"
+	cd .. && BR_FAKE_TV=1 BR_ASSET_ROOT=assets_out tests/test_game $(ARGS)
 
 test_game: $(SRC)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
@@ -41,6 +50,8 @@ test_game: $(SRC)
 # Renders a few frames to PNG so the scene can be looked at without a Vita.
 shots: screenshot
 	cd .. && mkdir -p tests/shots && BR_ASSET_ROOT=assets_out tests/screenshot tests/shots
+	cd .. && mkdir -p tests/shots/tv && BR_FAKE_TV=1 BR_ASSET_ROOT=assets_out \
+	         tests/screenshot tests/shots/tv
 
 screenshot: $(SHOTS)
 	$(CC) $(CFLAGS) -o $@ $(SHOTS) $(LDFLAGS)

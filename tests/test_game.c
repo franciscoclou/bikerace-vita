@@ -18,7 +18,9 @@
 #include "../src/ui/menu.h"
 #include "../src/ui/result.h"
 #include "../src/ui/settings.h"
+#include "../src/platform/device.h"
 #include "../src/platform/mixer.h"
+#include "../src/ui/controls.h"
 #include "../src/ui/start.h"
 #include "../src/game/game.h"
 #include "stub/vitaGL.h"
@@ -1060,6 +1062,11 @@ static void test_menu_touch(br_game *game)
 
     begin("menu touch");
 
+    if (br_device_is_tv()) {
+        printf("     skipped -- a PlayStation TV has no touch panel\n");
+        return;
+    }
+
     br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
     br_save_unlock_everything(&save);
     memset(&menu, 0, sizeof(menu));
@@ -1780,6 +1787,11 @@ static void test_settings_touch_back(br_game *game)
 
     begin("settings can be left by touch");
 
+    if (br_device_is_tv()) {
+        printf("     skipped -- a PlayStation TV has no touch panel\n");
+        return;
+    }
+
     br_save_init(&save, game->pack.world_count, game->pack.worlds[0].level_count);
     memset(&art, 0, sizeof(art));
     br_settings_init(&settings, &art);
@@ -2012,6 +2024,136 @@ static void test_locked_tile_shakes(br_game *game)
     br_save_free(&save);
 }
 
+
+/* Every screen, driven end to end with nothing but the pad.
+ *
+ * This is the PlayStation TV in a test: no touch panel, no accelerometer, one
+ * DualShock. Touch has always been the alternative rather than the only way,
+ * and this is what says so -- it runs in both modes, so the claim is checked
+ * on the handheld too. A screen that can only be left by tapping it would fail
+ * here and nowhere else.
+ */
+static void test_plays_with_the_pad_alone(void)
+{
+    br_app app;
+    br_input in;
+    int guard;
+
+    begin("the whole game plays with the pad alone");
+
+    remove("assets_out/save.bin");
+    remove("assets_out/ghosts.bin");
+    CHECK(br_app_init(&app) == 0, "app init failed");
+    CHECK(app.screen == BR_APP_START, "the app did not open on the start screen");
+
+#define PRESS(field) do {                             \
+        memset(&in, 0, sizeof(in));                   \
+        in.field = 1;                                 \
+        br_app_update(&app, &in, 1.0f / 60.0f);       \
+        memset(&in, 0, sizeof(in));                   \
+        br_app_update(&app, &in, 1.0f / 60.0f);       \
+    } while (0)
+
+    /* Start -> the world list. */
+    app.start.list.selected = 0;
+    PRESS(confirm_pressed);
+    CHECK(app.screen == BR_APP_MENU, "Cross on Start did not open the menu");
+    CHECK(app.menu.screen == BR_MENU_WORLDS, "the menu did not open on the worlds");
+
+    /* World 1 -> its levels -> race. */
+    app.menu.world = 0;
+    PRESS(confirm_pressed);
+    CHECK(app.menu.screen == BR_MENU_LEVELS, "Cross did not open world 1");
+    app.menu.level = 0;
+    PRESS(confirm_pressed);
+    CHECK(app.screen == BR_APP_RACING, "Cross did not start 1-1");
+
+    /* Start pauses; Circle resumes. */
+    PRESS(pause_pressed);
+    CHECK(app.screen == BR_APP_PAUSED, "Start did not pause");
+    PRESS(back_pressed);
+    CHECK(app.screen == BR_APP_RACING, "Circle did not resume");
+
+    /* The pause menu's own rows reach the controls page and back out of it. */
+    PRESS(pause_pressed);
+    CHECK(app.screen == BR_APP_PAUSED, "Start did not pause the second time");
+    app.pause.bar.selected = 2;                 /* Controls */
+    PRESS(confirm_pressed);
+    CHECK(app.pause.showing_controls, "Cross did not open the controls page");
+    PRESS(back_pressed);
+    CHECK(!app.pause.showing_controls, "Circle did not leave the controls page");
+    PRESS(back_pressed);
+    CHECK(app.screen == BR_APP_RACING, "Circle did not resume after the controls");
+
+    /* Finish the run and leave the panel with a button. */
+    finish_current_level(&app);
+    CHECK(app.screen == BR_APP_RESULT, "the run did not reach the result panel");
+    PRESS(back_pressed);                        /* Circle repeats */
+    CHECK(app.screen == BR_APP_RACING, "Circle on the result did not restart");
+    PRESS(pause_pressed);
+    CHECK(app.screen == BR_APP_PAUSED, "Start did not pause the restarted run");
+    app.pause.bar.selected = app.pause.bar.count - 1;   /* Levels */
+    PRESS(confirm_pressed);
+    CHECK(app.screen == BR_APP_MENU, "the pause menu did not reach the level list");
+
+    /* Back out of the menus to the start screen. */
+    guard = 0;
+    while (app.screen == BR_APP_MENU && guard++ < 8)
+        PRESS(back_pressed);
+    CHECK(app.screen == BR_APP_START,
+          "Circle did not walk back out of the menus in %d presses", guard);
+
+    /* Settings, its controls page, and out again. */
+    app.start.list.selected = 1;
+    PRESS(confirm_pressed);
+    CHECK(app.screen == BR_APP_SETTINGS, "Cross did not open the settings");
+    app.settings.list.selected = 2;             /* Controls */
+    PRESS(confirm_pressed);
+    CHECK(app.settings.showing_controls, "Cross did not open the controls page");
+    PRESS(back_pressed);
+    CHECK(!app.settings.showing_controls, "Circle did not leave the controls page");
+    PRESS(back_pressed);
+    CHECK(app.screen == BR_APP_START, "Circle did not close the settings");
+
+    /* And the way out. */
+    app.start.list.selected = 2;
+    PRESS(confirm_pressed);
+    CHECK(app.start.confirming_exit, "Cross on Exit did not ask first");
+    CHECK(!br_app_should_quit(&app), "asking to leave already quit");
+    app.start.confirm_list.selected = 1;
+    PRESS(confirm_pressed);
+    CHECK(br_app_should_quit(&app), "'yes, quit' did not quit");
+
+#undef PRESS
+
+    br_app_free(&app);
+    remove("assets_out/save.bin");
+    remove("assets_out/ghosts.bin");
+}
+
+/* The touch rows of the controls reference describe a panel a television does
+ * not have, so they are not listed there. */
+static void test_controls_list_matches_the_device(void)
+{
+    int all = br_controls_count(BR_CONTROLS_ALL);
+    int race = br_controls_count(BR_CONTROLS_RACE);
+
+    begin("the controls list matches the device");
+
+    if (br_device_is_tv()) {
+        CHECK(all == 10, "a TV lists %d controls, want 10 -- the two touch rows "
+              "should be gone", all);
+        CHECK(race == 6, "a TV lists %d race controls, want 6", race);
+        CHECK(!br_ui_back_button_visible(),
+              "the touch-only back button is still drawn on a TV");
+    } else {
+        CHECK(all == 12, "a handheld lists %d controls, want 12", all);
+        CHECK(race == 7, "a handheld lists %d race controls, want 7", race);
+        CHECK(br_ui_back_button_visible(),
+              "the back button is missing on a handheld");
+    }
+}
+
 int main(int argc, char **argv)
 {
     br_game game;
@@ -2047,6 +2189,7 @@ int main(int argc, char **argv)
     test_throttle_lock(&game);
     test_bike_cell(&game);
     test_settings_toggles(&game);
+    test_controls_list_matches_the_device();
     test_old_save_versions_load(&game);
     test_ghosts_reject_a_different_pack(&game);
     test_locked_tile_shakes(&game);
@@ -2066,6 +2209,7 @@ int main(int argc, char **argv)
 
     br_game_free(&game);
     test_app_opens_audio();
+    test_plays_with_the_pad_alone();
     test_reset_clears_ghosts();
 
     printf("\n%s: %d failure(s)\n", g_failures ? "FAILED" : "OK", g_failures);

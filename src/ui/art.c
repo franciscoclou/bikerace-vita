@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../platform/device.h"
 #include "../platform/fs.h"
 #include "../engine/render.h"
 #include "../platform/log.h"
@@ -19,14 +20,23 @@ void br_ui_back_button_rect(float *x, float *y, float *size)
     *size = BACK_SIZE;
 }
 
+int br_ui_back_button_visible(void)
+{
+    return !br_device_is_tv();
+}
+
 int br_ui_back_button_hit(float px, float py)
 {
+    if (!br_ui_back_button_visible())
+        return 0;
     return px >= BACK_X && px < BACK_X + BACK_SIZE &&
            py >= BACK_Y && py < BACK_Y + BACK_SIZE;
 }
 
 void br_ui_back_button_draw(const br_ui_art *art, int pressed)
 {
+    if (!br_ui_back_button_visible())
+        return;
     if (br_ui_has(&art->t_back))
         br_draw_rect(BACK_X, BACK_Y, BACK_X + BACK_SIZE, BACK_Y + BACK_SIZE,
                      &art->t_back, pressed ? &BR_TILE_SEL : NULL);

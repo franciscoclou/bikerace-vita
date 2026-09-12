@@ -190,6 +190,40 @@ check the port against the original.
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 [docs/PORTING.md](docs/PORTING.md) tracks what is done and what is next.
 
+## PlayStation TV
+
+The port runs on a PSTV as well as a handheld. It is the same hardware with two
+things taken away, and both are handled in
+[src/platform/device.c](src/platform/device.c), which asks
+`sceKernelIsPSVitaTV()` once and caches the answer.
+
+**No touch panel.** Touch has always been the alternative rather than the only
+way to do anything — every tap has a button beside it — so nothing is
+unreachable. What changes is that the game stops offering it: the two touch
+rows drop out of the controls reference, the "tap" hint leaves the start
+screen, and the back button in the corner is not drawn, with the button hints
+sliding over into its place. `br_input_poll` skips `sceTouchPeek` entirely.
+
+**The picture goes to a television**, which may crop its own edges. `br_ui_begin`
+applies a 2.5%-per-edge inset on a PSTV so no interface lands where a set that
+overscans would cut it — the clock, the level name and the star times most of
+all. The scene is not inset and still fills the screen; backdrops and dimming
+layers use `br_fill_screen()` / `br_draw_screen()`, which cover the real screen
+rather than the inset 960x544, or the inset would show as a black frame.
+
+`make -C tests run` runs the whole suite twice, the second time with
+`BR_FAKE_TV=1`, which is what `device.c` reads instead of the kernel call on
+the host. `make -C tests shots` writes the TV layout to `tests/shots/tv/`. The
+case that matters is **the whole game plays with the pad alone**, which drives
+start, menus, race, pause, result, settings and exit with nothing but buttons:
+a screen that could only be left by tapping it fails there and nowhere else.
+
+Controller reads are `sceCtrlPeekBufferPositive` on port 0, which is right for
+both machines — on a PSTV that is the first paired pad, and a DualShock's L1
+and R1 arrive as `LTRIGGER` and `RTRIGGER`, which is what the lean reads. Do
+not switch to the `Ext2` variants for this: they renumber the ports *and* move
+the shoulder buttons to `L1`/`R1`.
+
 ## Controls
 
 | | |
@@ -205,8 +239,10 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before porting anything;
 | Bike list | Triangle, or the cell after the last world |
 | Quit | Exit, on the start screen |
 
-Nothing else closes the game: Start+Select does not, and Circle backs out to
-the start screen rather than dropping you out.
+Every touch entry above is an alternative, never the only way -- which is what
+makes the PlayStation TV work. Nothing else closes the game: Start+Select does
+not, and Circle backs out to the start screen rather than dropping you out.
+Choosing Exit asks before it quits.
 
 A run always begins with the throttle shut until Cross is released and pressed
 again, so the press that dismissed a menu cannot also start the clock.
@@ -223,12 +259,15 @@ Android accelerometer produced. Positive torque rotates the bike backwards, so
 ## Verifying before you build
 
 `make -C tests run` compiles the game's own sources natively with GL and the
-logger stubbed. It runs the real physics over all 152 levels, plays 1-1 to the
-finish line, and checks the camera and broad-phase invariants.
+logger stubbed, and runs everything twice -- once as a handheld, once as a
+PlayStation TV (see that section). It runs the real physics over all 152
+levels, plays 1-1 to the finish line, and checks the camera and broad-phase
+invariants.
 
 `make -C tests shots` renders real frames to `tests/shots/*.png` through a
 small software rasteriser in the stub, so the scene transforms, atlas regions
-and draw order can be looked at directly.
+and draw order can be looked at directly. The PlayStation TV layout lands in
+`tests/shots/tv/`.
 
 Anything that drives a race in the harness must **release the throttle for one
 frame** before holding it, exactly as a player does. A run that holds Cross
